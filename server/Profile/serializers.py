@@ -40,8 +40,25 @@ class UserProfileSerializer(serializers.ModelSerializer):
     email = serializers.EmailField(source="user.email", read_only=True)
     image = serializers.ImageField(required=False)
     is_superuser = serializers.BooleanField(source="user.is_superuser", read_only=True)
+    role = serializers.SerializerMethodField()
 
     class Meta:
         model = UserProfile
-        fields = ["username", "email", "phone", "bio", "image", "is_superuser"]
+        fields = ["username", "email", "phone", "bio", "image", "is_superuser", "role"]
         read_only_fields = ["username", "email"]
+
+    def get_role(self, obj):
+        if obj.user.is_superuser:
+            return "admin"
+        return "user"
+
+
+class ChangePasswordSerializer(serializers.Serializer):
+    old_password = serializers.CharField(required=True)
+    new_password = serializers.CharField(required=True)
+
+    def validate_old_password(self, value):
+        user = self.context['request'].user
+        if not user.check_password(value):
+            raise serializers.ValidationError("Old password is incorrect")
+        return value

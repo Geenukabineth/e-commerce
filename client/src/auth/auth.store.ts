@@ -16,6 +16,7 @@ type AuthState = {
   profile: Profile | null;
   setProfile: (p: Profile | null) => void;
   logout: () => void;
+  isLoading: boolean;
 };
 
 const AuthContext = createContext<AuthState | null>(null);
@@ -32,6 +33,7 @@ export const AuthProvider: React.FC<React.PropsWithChildren> = ({ children }) =>
         logoutApi();
         setProfile(null);
       },
+      isLoading: false,
     }),
     [profile]
   );

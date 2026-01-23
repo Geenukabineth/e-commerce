@@ -25,6 +25,19 @@ export async function updateProfileApi(data: FormData): Promise<Profile> {
   return res.data as Profile;
 }
 
-export function logoutApi(){
+export async function changePasswordApi(payload: any): Promise<{message: string}> {
+    const res = await http.post("/v1/change-password/", payload);
+    return res.data;
+}
+
+export async function logoutApi() {
+    const refresh = tokenStore.getRefresh();
+    if (refresh) {
+        try {
+            await http.post("/v1/logout/", { refresh });
+        } catch (error) {
+            console.error("Logout failed on server", error);
+        }
+    }
     tokenStore.clear();
 }
