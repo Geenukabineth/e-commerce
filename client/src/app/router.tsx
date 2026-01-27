@@ -8,6 +8,7 @@ import RequireAuth from "../auth/RequireAuth";
 import AdminDashboard from "../components/admin/dashboard";
 import RegisterSeller from "../components/page/RegisterSeller";
 import SellerDashboard from "../components/seller/SellerDashboard";
+import UserDashboard from "../components/Buyer/UserDashboard";
 
 export const router = createBrowserRouter([
   {
@@ -23,7 +24,8 @@ export const router = createBrowserRouter([
       },
       { path: "/admin", element: <AdminDashboard /> },
       { path: "/seller/dashboard", element: <SellerDashboard /> },
-      { path: "/register-seller", element: <RegisterSeller/> }
+      { path: "/register-seller", element: <RegisterSeller/> },
+      { path: "/dashboard", element: <UserDashboard/> }
     ],
   },
 ]);

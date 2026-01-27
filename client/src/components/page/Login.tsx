@@ -31,6 +31,10 @@ export default function Login() {
       else if (profile.is_approved || profile.role === "seller") {
         nav("/seller/dashboard", { replace: true });
       } 
+
+      else if (profile.role === "user") {
+        nav("/dashboard", { replace: true });
+      }
       // 3. Default to Home
       else {
          nav("/", { replace: true });
