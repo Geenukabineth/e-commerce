@@ -1,258 +1,174 @@
-import React, { useState } from "react";
-import { registerApi } from "../../auth/auth.api"; 
+import { useEffect, useState } from "react";
+import { getAllSellersApi, approveSellerApi } from "../../auth/auth.api";
+import type { Profile } from "../../auth/auth.types";
 
-// --- TYPES ---
-export interface User {
-  id: number;
-  username: string;
-  email: string;
-  role: "admin" | "user";
-  status: "Active" | "Inactive";
-  joinedDate: string;
-}
 
-export default function Users() {
-  // 1. STATE: Mock Data (Replace with API fetch in real app)
-  const [users, setUsers] = useState<User[]>([
-    { id: 1, username: "admin", email: "admin@gmail.com", role: "admin", status: "Active", joinedDate: "2023-01-15" },
-    { id: 2, username: "johndoe", email: "john@example.com", role: "user", status: "Active", joinedDate: "2023-02-20" },
-    { id: 3, username: "sarah_smith", email: "sarah@test.com", role: "user", status: "Inactive", joinedDate: "2023-03-10" },
-  ]);
+export default function SellerApproval() {
+  const [sellers, setSellers] = useState<Profile[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [actionLoading, setActionLoading] = useState<number | null>(null);
+  const [error, setError] = useState<string | null>(null);
 
-  const [isModalOpen, setIsModalOpen] = useState(false);
-  const [loading, setLoading] = useState(false);
-  
-  // Form State
-  const [formData, setFormData] = useState({
-    username: "",
-    email: "",
-    password: "",
-    confirmPassword: "",
-    role: "user",
-  });
+  useEffect(() => {
+    fetchSellers();
+  }, []);
 
-  // 2. HANDLERS
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
-    setFormData({ ...formData, [e.target.name]: e.target.value });
-  };
-
-  const handleDelete = (id: number) => {
-    if (window.confirm("Are you sure you want to delete this user?")) {
-      setUsers(users.filter((u) => u.id !== id));
-    }
-  };
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (formData.password !== formData.confirmPassword) {
-      alert("Passwords do not match");
-      return;
-    }
-
-    setLoading(true);
+  const fetchSellers = async () => {
     try {
-      // 1. Call Backend API
-      await registerApi({
-        username: formData.username,
-        email: formData.email,
-        password: formData.password,
-      });
-
-      // 2. Update Local UI (Optimistic update)
-      const newUser: User = {
-        id: users.length + 1,
-        username: formData.username,
-        email: formData.email,
-        role: formData.role as "admin" | "user",
-        status: "Active",
-        joinedDate: new Date().toISOString().split('T')[0],
-      };
-
-      setUsers([...users, newUser]);
-      alert("User created successfully!");
-      setIsModalOpen(false);
-      setFormData({ username: "", email: "", password: "", confirmPassword: "", role: "user" }); // Reset form
-      
-    } catch (err: any) {
-      alert(err.response?.data?.message || "Failed to create user");
+      setLoading(true);
+      const data = await getAllSellersApi();
+      setSellers(data);
+    } catch (err) {
+      setError("Failed to load sellers.");
     } finally {
       setLoading(false);
     }
   };
 
-  return (
-    <div className="space-y-6">
+  const handleApproval = async (id: number, status: boolean) => {
+    const action = status ? "approve" : "suspend";
+    if (!window.confirm(`Are you sure you want to ${action} this seller?`)) return;
+
+    setActionLoading(id);
+    try {
+      await approveSellerApi(id);
       
-      {/* --- TOP BAR --- */}
-      <div className="flex items-center justify-between">
+      // Update local state to reflect change immediately
+      setSellers((prev) =>
+        prev.map((seller) =>
+          seller.id === id ? { ...seller, is_approved: status } : seller
+        )
+      );
+    } catch (err) {
+      alert(`Failed to ${action} seller.`);
+    } finally {
+      setActionLoading(null);
+    }
+  };
+
+  if (loading) return <div className="p-10 text-center text-gray-500">Loading sellers...</div>;
+  if (error) return <div className="p-10 text-center text-red-500">{error}</div>;
+
+  return (
+    <div className="mx-auto max-w-7xl py-10 px-4">
+      
+      {/* Header */}
+      <div className="mb-8 flex items-center justify-between">
         <div>
-           <h2 className="text-xl font-bold text-gray-900">User Management</h2>
-           <p className="text-sm text-gray-500">View and manage system users</p>
+          <h1 className="text-2xl font-bold text-gray-900">Seller Approval Queue</h1>
+          <p className="text-sm text-gray-500">Review and approve vendor accounts before they can sell.</p>
         </div>
-        <button
-          onClick={() => setIsModalOpen(true)}
-          className="rounded-lg bg-black px-4 py-2 text-sm font-medium text-white transition hover:bg-gray-800"
-        >
-          + Add New User
-        </button>
+        <div className="flex gap-2">
+            <div className="rounded-lg bg-yellow-50 px-4 py-2 text-center border border-yellow-100">
+                <span className="block text-xl font-bold text-yellow-600">
+                    {sellers.filter(s => !s.is_approved).length}
+                </span>
+                <span className="text-xs text-yellow-600 font-medium">Pending</span>
+            </div>
+             <div className="rounded-lg bg-green-50 px-4 py-2 text-center border border-green-100">
+                <span className="block text-xl font-bold text-green-600">
+                    {sellers.filter(s => s.is_approved).length}
+                </span>
+                <span className="text-xs text-green-600 font-medium">Active</span>
+            </div>
+        </div>
       </div>
 
-      {/* --- USERS TABLE --- */}
-      <div className="rounded-xl border bg-white shadow-sm">
-        <div className="overflow-x-auto">
-          <table className="w-full text-left text-sm">
-            <thead className="bg-gray-50 text-gray-500">
-              <tr>
-                <th className="px-6 py-3 font-medium">User</th>
-                <th className="px-6 py-3 font-medium">Role</th>
-                <th className="px-6 py-3 font-medium">Status</th>
-                <th className="px-6 py-3 font-medium">Joined Date</th>
-                <th className="px-6 py-3 font-medium text-right">Actions</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-gray-100">
-              {users.map((user) => (
-                <tr key={user.id} className="hover:bg-gray-50">
-                  <td className="px-6 py-4">
-                    <div className="flex items-center gap-3">
-                      {/* Avatar Circle */}
-                      <div className="flex h-9 w-9 items-center justify-center rounded-full bg-blue-100 text-xs font-bold text-blue-700">
-                        {user.username.charAt(0).toUpperCase()}
-                      </div>
-                      <div>
-                        <p className="font-medium text-gray-900">{user.username}</p>
-                        <p className="text-xs text-gray-500">{user.email}</p>
-                      </div>
-                    </div>
-                  </td>
-                  
-                  <td className="px-6 py-4">
-                    <span className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium capitalize ${
-                      user.role === 'admin' ? 'bg-purple-100 text-purple-800' : 'bg-gray-100 text-gray-800'
-                    }`}>
-                      {user.role}
-                    </span>
-                  </td>
-
-                  <td className="px-6 py-4">
-                    <span className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ${
-                      user.status === 'Active' ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
-                    }`}>
-                      {user.status}
-                    </span>
-                  </td>
-
-                  <td className="px-6 py-4 text-gray-500">{user.joinedDate}</td>
-                  
-                  <td className="px-6 py-4 text-right">
-                    <button 
-                      onClick={() => handleDelete(user.id)}
-                      className="text-red-600 hover:text-red-800 hover:underline"
-                    >
-                      Delete
-                    </button>
-                  </td>
+      {/* Table */}
+      <div className="overflow-hidden rounded-lg border border-gray-200 bg-white shadow-sm">
+        <table className="min-w-full divide-y divide-gray-200">
+          <thead className="bg-gray-50">
+            <tr>
+              <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">Business Details</th>
+              <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">Owner Contact</th>
+              <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">Documents</th>
+              <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">Status</th>
+              <th className="px-6 py-3 text-right text-xs font-medium uppercase tracking-wider text-gray-500">Actions</th>
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-gray-200 bg-white">
+            {sellers.length === 0 ? (
+                <tr>
+                    <td colSpan={5} className="px-6 py-10 text-center text-sm text-gray-500">
+                        No sellers found.
+                    </td>
                 </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+            ) : (
+                sellers.map((seller) => (
+                <tr key={seller.id} className="hover:bg-gray-50 transition">
+                    
+                    {/* Business Info */}
+                    <td className="px-6 py-4">
+                        <div className="text-sm font-medium text-gray-900">{seller.business_name || "N/A"}</div>
+                        <div className="text-xs text-gray-500">Reg: {seller.registration_number}</div>
+                        <div className="text-xs text-gray-400 truncate max-w-[150px]">{seller.address}</div>
+                    </td>
+
+                    {/* Owner Info */}
+                    <td className="px-6 py-4">
+                        <div className="text-sm text-gray-900">{seller.owner_name}</div>
+                        <div className="text-xs text-gray-500">{seller.email}</div>
+                        <div className="text-xs text-gray-500">{seller.phone}</div>
+                    </td>
+
+                    {/* Documents */}
+                    <td className="px-6 py-4">
+                        {seller.id_document ? (
+                            <a 
+                                href={seller.id_document} 
+                                target="_blank" 
+                                rel="noopener noreferrer"
+                                className="inline-flex items-center gap-1 text-sm text-blue-600 hover:underline"
+                            >
+                                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13" /></svg>
+                                View ID
+                            </a>
+                        ) : (
+                            <span className="text-xs text-gray-400 italic">No Doc</span>
+                        )}
+                    </td>
+
+                    {/* Status Badge */}
+                    <td className="px-6 py-4">
+                        <span className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium capitalize
+                            ${seller.is_approved 
+                                ? 'bg-green-100 text-green-800' 
+                                : 'bg-red-100 text-red-800 animate-pulse'}
+                        `}>
+                            {seller.is_approved ? 'Approved' : 'Pending Approval'}
+                        </span>
+                    </td>
+
+                    {/* Actions */}
+                    <td className="px-6 py-4 text-right text-sm font-medium">
+                        {actionLoading === seller.id ? (
+                             <span className="text-gray-400 text-xs">Processing...</span>
+                        ) : (
+                            <div className="flex justify-end gap-2">
+                                {!seller.is_approved ? (
+                                    <button
+                                        onClick={() => handleApproval(seller.id, true)}
+                                        className="rounded bg-green-600 px-3 py-1.5 text-xs font-semibold text-white shadow-sm hover:bg-green-500 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-green-600"
+                                    >
+                                        Approve
+                                    </button>
+                                ) : (
+                                    <button
+                                        onClick={() => handleApproval(seller.id, false)}
+                                        className="rounded bg-white px-3 py-1.5 text-xs font-semibold text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 hover:bg-gray-50"
+                                    >
+                                        Suspend
+                                    </button>
+                                )}
+                            </div>
+                        )}
+                    </td>
+                </tr>
+                ))
+            )}
+          </tbody>
+        </table>
       </div>
-
-      {/* --- ADD USER MODAL --- */}
-      {isModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50 p-4">
-          <div className="w-full max-w-lg rounded-xl bg-white p-6 shadow-xl">
-            <h2 className="mb-4 text-xl font-bold text-gray-900">Add New User</h2>
-            
-            <form onSubmit={handleSubmit} className="space-y-4">
-              {/* Username */}
-              <div>
-                <label className="block text-sm font-medium text-gray-700">Username</label>
-                <input
-                  name="username"
-                  type="text"
-                  required
-                  className="mt-1 w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-black focus:outline-none"
-                  value={formData.username}
-                  onChange={handleChange}
-                />
-              </div>
-
-              {/* Email */}
-              <div>
-                <label className="block text-sm font-medium text-gray-700">Email</label>
-                <input
-                  name="email"
-                  type="email"
-                  required
-                  className="mt-1 w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-black focus:outline-none"
-                  value={formData.email}
-                  onChange={handleChange}
-                />
-              </div>
-
-              {/* Role */}
-              <div>
-                <label className="block text-sm font-medium text-gray-700">Role</label>
-                <select
-                  name="role"
-                  className="mt-1 w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-black focus:outline-none"
-                  value={formData.role}
-                  onChange={handleChange}
-                >
-                  <option value="user">User (Client)</option>
-                  <option value="admin">Administrator</option>
-                </select>
-              </div>
-
-              {/* Passwords */}
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700">Password</label>
-                  <input
-                    name="password"
-                    type="password"
-                    required
-                    className="mt-1 w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-black focus:outline-none"
-                    value={formData.password}
-                    onChange={handleChange}
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700">Confirm</label>
-                  <input
-                    name="confirmPassword"
-                    type="password"
-                    required
-                    className="mt-1 w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-black focus:outline-none"
-                    value={formData.confirmPassword}
-                    onChange={handleChange}
-                  />
-                </div>
-              </div>
-
-              {/* Buttons */}
-              <div className="flex justify-end gap-3 pt-4 border-t">
-                <button
-                  type="button"
-                  onClick={() => setIsModalOpen(false)}
-                  className="rounded-lg px-4 py-2 text-sm font-medium text-gray-600 hover:bg-gray-100"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  disabled={loading}
-                  className="rounded-lg bg-black px-6 py-2 text-sm font-medium text-white hover:bg-gray-800 disabled:opacity-50"
-                >
-                  {loading ? "Creating..." : "Create User"}
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
     </div>
   );
 }

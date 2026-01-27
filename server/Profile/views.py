@@ -151,3 +151,16 @@ class UserDeleteView(APIView):
             
         except User.DoesNotExist:
             return Response({"detail": "User not found."}, status=status.HTTP_404_NOT_FOUND)
+
+
+class ApproveSellerView(APIView):
+    permission_classes = [permissions.IsAdminUser]
+
+    def post(self, request, pk):
+        try:
+            profile = UserProfile.objects.get(user__id=pk, role='seller')
+            profile.is_approved = True
+            profile.save()
+            return Response({"message": "Seller approved successfully"}, status=status.HTTP_200_OK)
+        except UserProfile.DoesNotExist:
+            return Response({"detail": "Seller profile not found."}, status=status.HTTP_404_NOT_FOUND)

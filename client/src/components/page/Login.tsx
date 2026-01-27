@@ -22,12 +22,20 @@ export default function Login() {
       const profile = await getProfileApi();
       setProfile(profile);
 
-      // Check if user is an admin (is_superuser)
+      // --- FIX STARTS HERE ---
+      // 1. Check if user is Admin
       if (profile.is_superuser || profile.role === 'admin') {
          nav("/admin", { replace: true });
-      } else {
+      } 
+      // 2. Check if user is Seller (using else if)
+      else if (profile.is_approved || profile.role === "seller") {
+        nav("/seller/dashboard", { replace: true });
+      } 
+      // 3. Default to Home
+      else {
          nav("/", { replace: true });
       }
+      // --- FIX ENDS HERE ---
 
     } catch (err: any) {
       setError("Login failed. Check username/password.");
@@ -37,7 +45,6 @@ export default function Login() {
   };
 
   const handleSocialLogin = (provider: string) => {
-    // Placeholder for real OAuth logic (Firebase, Auth0, or Backend API)
     alert(`${provider} login is coming soon!`);
   };
 
@@ -53,7 +60,6 @@ export default function Login() {
             onClick={() => handleSocialLogin("Google")}
             className="flex w-full items-center justify-center gap-2 rounded-md border bg-white px-4 py-2 text-sm font-medium text-gray-700 transition hover:bg-gray-50"
           >
-            {/* Google Icon SVG */}
             <svg className="h-5 w-5" viewBox="0 0 24 24">
               <path
                 d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"
@@ -79,7 +85,6 @@ export default function Login() {
             onClick={() => handleSocialLogin("Facebook")}
             className="flex w-full items-center justify-center gap-2 rounded-md bg-[#1877F2] px-4 py-2 text-sm font-medium text-white transition hover:bg-[#166fe5]"
           >
-            {/* Facebook Icon SVG */}
             <svg className="h-5 w-5 fill-current" viewBox="0 0 24 24">
               <path d="M9.101 23.691v-7.98H6.627v-3.667h2.474v-1.58c0-4.085 1.848-5.978 5.858-5.978.401 0 .955.042 1.468.103a8.68 8.68 0 0 1 1.141.195v3.325a8.623 8.623 0 0 0-.653-.036c-2.148 0-2.971.956-2.971 3.594v.376h3.817l-.571 3.667h-3.246v8.006A12.603 12.603 0 0 0 24 11.588C24 5.205 18.627 0 12 0S0 5.205 0 11.588c0 5.992 4.815 10.896 11.167 11.564 1.23.129 1.465-.465.934-.461h-3z" />
             </svg>
@@ -95,7 +100,6 @@ export default function Login() {
             Or continue with email
           </span>
         </div>
-        {/* --- End Social Login --- */}
 
         <form onSubmit={onSubmit} className="space-y-3">
           <input

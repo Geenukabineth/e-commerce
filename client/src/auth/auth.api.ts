@@ -41,3 +41,30 @@ export async function logoutApi() {
     }
     tokenStore.clear();
 }
+
+export async function registerSellerApi(formData: FormData): Promise<{message: string}> {
+    const res = await http.post("/v1/seller/register/", formData);
+    return res.data;
+}   
+
+export async function approveSellerApi(sellerId: number): Promise<{message: string}> {
+    const res = await http.post(`/v1/admin/approve-seller/${sellerId}/`);
+    return res.data;
+}
+export async function getAllSellersApi(): Promise<Profile[]> {
+    const res = await http.get("/v1/admin/sellers/");
+    return res.data as Profile[];
+}
+export async function getPendingSellersApi(): Promise<Profile[]> {
+    const res = await http.get("/v1/admin/sellers/?is_approved=false");
+    return res.data as Profile[];
+}
+
+
+
+export async function googleLoginApi(accessToken: string): Promise<{message:string}> {
+    const res = await http.post("/v1/google-login/", { access_token: accessToken });
+    const tokens = res.data as Tokens;
+    tokenStore.set(tokens);
+    return res.data;
+}

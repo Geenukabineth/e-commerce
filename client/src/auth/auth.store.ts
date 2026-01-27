@@ -1,5 +1,5 @@
-import React, {createContext,useContext,useMemo,useState} from "react";
-import type { Profile } from "./auth.types";
+import React, {useContext,useMemo,useState} from "react";
+import type { Profile, Role } from "./auth.types";
 import { logoutApi } from "./auth.api";
 
 declare global {
@@ -17,13 +17,17 @@ type AuthState = {
   setProfile: (p: Profile | null) => void;
   logout: () => void;
   isLoading: boolean;
+  role: Role | null;
 };
 
-const AuthContext = createContext<AuthState | null>(null);
+
+export const AuthContext = React.createContext<AuthState | null>(null);
 
 export const AuthProvider: React.FC<React.PropsWithChildren> = ({ children }) => {
   const [profile, setProfile] = useState<Profile | null>(null);
 
+  // You may want to derive role from profile, for example:
+  const role: Role | null = profile ? profile.role : null;
 
   const value = useMemo<AuthState>(
     () => ({
@@ -34,6 +38,7 @@ export const AuthProvider: React.FC<React.PropsWithChildren> = ({ children }) =>
         setProfile(null);
       },
       isLoading: false,
+      role,
     }),
     [profile]
   );

@@ -17,5 +17,6 @@ urlpatterns = [
     path('users/sellers/', SellerListView.as_view(), name='all-sellers'),
     path('users/', UserListView.as_view(), name='user-list'),
     path('users/<int:pk>/', UserDeleteView.as_view(), name='user-delete'),
+    path("admin/sellers/<int:pk>/approve/", ApproveSellerView.as_view(), name="approve-seller"),
 
 ]
