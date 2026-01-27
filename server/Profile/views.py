@@ -5,7 +5,9 @@ from rest_framework import status
 from .serializers import *
 from .models import UserProfile
 from rest_framework.permissions import IsAuthenticated
+from rest_framework import permissions
 from rest_framework_simplejwt.tokens import RefreshToken
+
 
 class ProfileView(APIView):
     permission_classes = [IsAuthenticated] 
@@ -89,3 +91,63 @@ class ChangePasswordView(APIView):
             request.user.save()
             return Response({"message": "Password changed successfully"}, status=status.HTTP_200_OK)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+
+
+class SellerRegisterView(APIView):
+    def post(self, request):
+        serializer = SellerRegisterSerializer(data=request.data)
+        if serializer.is_valid():
+            serializer.save()
+            return Response({"message": "Seller registered successfully"}, status=status.HTTP_201_CREATED)
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+class SellerListView(APIView):
+    # Reuse the same serializer used for User Management
+    serializer_class = UserManagementSerializer
+    permission_classes = [permissions.IsAdminUser]
+
+    def get(self, request):
+        # Filter only users with the 'seller' role
+        sellers = UserProfile.objects.filter(role='seller').order_by('-user__date_joined')
+        serializer = self.serializer_class(sellers, many=True)
+        return Response(serializer.data)
+    
+
+# server/Profile/views.py
+from rest_framework import generics, permissions, status
+from rest_framework.views import APIView
+from rest_framework.response import Response
+from django.contrib.auth.models import User
+from .models import UserProfile
+from .serializers import UserManagementSerializer
+
+# 1. LIST ALL USERS (Admin Only)
+class UserListView(generics.ListAPIView):
+    # We query UserProfile because it holds the 'role' and 'phone'
+    queryset = UserProfile.objects.all().select_related('user').order_by('-user__date_joined')
+    serializer_class = UserManagementSerializer
+    permission_classes = [permissions.IsAdminUser]
+
+# 2. DELETE USER (Admin Only)
+class UserDeleteView(APIView):
+    permission_classes = [permissions.IsAdminUser]
+
+    def delete(self, request, pk):
+        try:
+            # We fetch the standard User model by ID
+            user = User.objects.get(pk=pk)
+            
+            # Safety: Prevent deleting yourself
+            if user.id == request.user.id:
+                return Response(
+                    {"detail": "You cannot delete your own admin account."}, 
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+
+            # Deleting the User automatically cascades and deletes the UserProfile
+            user.delete()
+            return Response(status=status.HTTP_204_NO_CONTENT)
+            
+        except User.DoesNotExist:
+            return Response({"detail": "User not found."}, status=status.HTTP_404_NOT_FOUND)
