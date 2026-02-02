@@ -52,11 +52,11 @@ export default function AdminDashboard() {
           </div>
         </header>
 
-        {activeTab === "overview" && <Overview />}
-        {activeTab === "products" && <Products />}  
+        {activeTab === "overview" && <Overview />}         
         {activeTab === "users" && <AddUser />}
-        {activeTab === "orders" && <div>Orders coming soon...</div>}
-        {activeTab === "users" && <div>Users coming soon...</div>}
+        {activeTab === "products" && <Products />} 
+        {/* {activeTab === "orders" && <div>Orders coming soon...</div>} */}
+        {/* {activeTab === "users" && <div>Users coming soon...</div>} */}
       </main>
     </div>
   );

@@ -15,8 +15,10 @@ urlpatterns = [
     path('auth/google/', GoogleLogin.as_view(), name='google_login'),
     path('register-seller/', SellerRegisterView.as_view(), name='register-seller'),
     path('users/sellers/', SellerListView.as_view(), name='all-sellers'),
+
     path('users/', UserListView.as_view(), name='user-list'),
     path('users/<int:pk>/', UserDeleteView.as_view(), name='user-delete'),
-    path("admin/sellers/<int:pk>/approve/", ApproveSellerView.as_view(), name="approve-seller"),
+    path("admin/sellers/<int:pk>/approve/", SellerListView.as_view(), name="approve-seller"),
+    path("admin/sellers/<int:pk>/restrict/", RestrictSellerView.as_view(), name="restrict-seller"),
 
 ]

@@ -1,174 +1,202 @@
 import { useEffect, useState } from "react";
-import { getAllSellersApi, approveSellerApi } from "../../auth/auth.api";
 import type { Profile } from "../../auth/auth.types";
+import { 
+  approveSellerApi, 
+  getAllSellersApi, 
+  getPendingSellersApi,
+  deleteSellerApi,
+  restrictSellerApi 
+} from "../../auth/auth.api";
 
+export default function UserManagement() {
+  const [users, setUsers] = useState<Profile[]>([]);
+  const [selectedUser, setSelectedUser] = useState<Profile | null>(null);
+  
+  // --- Filters ---
+  const [roleFilter, setRoleFilter] = useState("ALL");
+  const [statusFilter, setStatusFilter] = useState("ALL");
 
-export default function SellerApproval() {
-  const [sellers, setSellers] = useState<Profile[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [actionLoading, setActionLoading] = useState<number | null>(null);
-  const [error, setError] = useState<string | null>(null);
+  // --- API Handlers ---
+  const fetchUsers = async () => {
+    try {
+        let data: Profile[];
+        // Use the specific pending API when the filter is set to Unverified
+        if (statusFilter === "UNVERIFIED") {
+            data = await getPendingSellersApi(); 
+        } else {
+            data = await getAllSellersApi(); 
+        }
+        setUsers(data);
+    } catch (error) {
+        console.error("Failed to fetch users", error);
+    }
+  };
+
+  const handleApprove = async (userId: number) => {
+    if (!window.confirm("Approve this seller?")) return;
+    try {
+        await approveSellerApi(userId);
+        fetchUsers();
+        setSelectedUser(null); 
+    } catch (error) {
+        console.error("Failed to approve", error);
+    }
+  };
+
+  const handleRestrict = async (userId: number) => {
+    if (!window.confirm("Restrict this seller? Status will be changed to Unverified.")) return;
+    try {
+        await restrictSellerApi(userId);
+        fetchUsers(); // Refresh list to show updated status
+    } catch (error) {
+        console.error("Failed to restrict seller", error);
+    }
+  };
+
+  const handleDelete = async (userId: number) => {
+    if (!window.confirm("Are you sure you want to permanently delete this account?")) return;
+    try {
+        await deleteSellerApi(userId);
+        fetchUsers(); // Refresh list after deletion
+    } catch (error) {
+        console.error("Failed to delete user", error);
+    }
+  };
 
   useEffect(() => {
-    fetchSellers();
-  }, []);
+    fetchUsers();
+  }, [statusFilter]); // Re-fetch when status filter changes to use getPendingSellersApi
 
-  const fetchSellers = async () => {
-    try {
-      setLoading(true);
-      const data = await getAllSellersApi();
-      setSellers(data);
-    } catch (err) {
-      setError("Failed to load sellers.");
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleApproval = async (id: number, status: boolean) => {
-    const action = status ? "approve" : "suspend";
-    if (!window.confirm(`Are you sure you want to ${action} this seller?`)) return;
-
-    setActionLoading(id);
-    try {
-      await approveSellerApi(id);
-      
-      // Update local state to reflect change immediately
-      setSellers((prev) =>
-        prev.map((seller) =>
-          seller.id === id ? { ...seller, is_approved: status } : seller
-        )
-      );
-    } catch (err) {
-      alert(`Failed to ${action} seller.`);
-    } finally {
-      setActionLoading(null);
-    }
-  };
-
-  if (loading) return <div className="p-10 text-center text-gray-500">Loading sellers...</div>;
-  if (error) return <div className="p-10 text-center text-red-500">{error}</div>;
+  // --- Client-side Filtering ---
+  const filteredUsers = users.filter(u => {
+    const matchesRole = roleFilter === "ALL" || u.role === roleFilter;
+    
+    // If showing 'All', we still filter 'Verified' on the frontend for accuracy
+    if (statusFilter === "VERIFIED") return matchesRole && u.is_approved === true;
+    
+    return matchesRole;
+  });
 
   return (
-    <div className="mx-auto max-w-7xl py-10 px-4">
+    <div className="p-8 max-w-7xl mx-auto bg-gray-50 min-h-screen">
       
-      {/* Header */}
-      <div className="mb-8 flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold text-gray-900">Seller Approval Queue</h1>
-          <p className="text-sm text-gray-500">Review and approve vendor accounts before they can sell.</p>
+      <div className="mb-8">
+          <h1 className="text-3xl font-bold text-gray-900">User Management</h1>
+          <p className="text-gray-500 mt-1">Review applications and manage access levels.</p>
+      </div>
+
+      {/* --- Filter Bar --- */}
+      <div className="mb-6 flex gap-4 bg-white p-4 rounded-lg shadow-sm border border-gray-200">
+        <div className="flex flex-col">
+            <label className="text-[10px] font-bold text-gray-400 uppercase mb-1">Role</label>
+            <select value={roleFilter} onChange={e => setRoleFilter(e.target.value)} className="border-gray-300 rounded-md text-sm">
+                <option value="ALL">All Roles</option>
+                <option value="seller">Sellers</option>
+                <option value="user">Users</option>
+            </select>
         </div>
-        <div className="flex gap-2">
-            <div className="rounded-lg bg-yellow-50 px-4 py-2 text-center border border-yellow-100">
-                <span className="block text-xl font-bold text-yellow-600">
-                    {sellers.filter(s => !s.is_approved).length}
-                </span>
-                <span className="text-xs text-yellow-600 font-medium">Pending</span>
-            </div>
-             <div className="rounded-lg bg-green-50 px-4 py-2 text-center border border-green-100">
-                <span className="block text-xl font-bold text-green-600">
-                    {sellers.filter(s => s.is_approved).length}
-                </span>
-                <span className="text-xs text-green-600 font-medium">Active</span>
-            </div>
+
+        <div className="flex flex-col">
+            <label className="text-[10px] font-bold text-gray-400 uppercase mb-1">Status</label>
+            <select value={statusFilter} onChange={e => setStatusFilter(e.target.value)} className="border-gray-300 rounded-md text-sm">
+                <option value="ALL">All Status</option>
+                <option value="VERIFIED">Verified</option>
+                <option value="UNVERIFIED">Unverified (Pending)</option>
+            </select>
         </div>
       </div>
 
-      {/* Table */}
-      <div className="overflow-hidden rounded-lg border border-gray-200 bg-white shadow-sm">
+      {/* --- Main Table --- */}
+      <div className="bg-white rounded-lg shadow overflow-hidden border border-gray-200">
         <table className="min-w-full divide-y divide-gray-200">
           <thead className="bg-gray-50">
             <tr>
-              <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">Business Details</th>
-              <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">Owner Contact</th>
-              <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">Documents</th>
-              <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">Status</th>
-              <th className="px-6 py-3 text-right text-xs font-medium uppercase tracking-wider text-gray-500">Actions</th>
+              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">User Identity</th>
+              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Role</th>
+              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Status</th>
+              <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase">Actions</th>
             </tr>
           </thead>
-          <tbody className="divide-y divide-gray-200 bg-white">
-            {sellers.length === 0 ? (
-                <tr>
-                    <td colSpan={5} className="px-6 py-10 text-center text-sm text-gray-500">
-                        No sellers found.
-                    </td>
-                </tr>
-            ) : (
-                sellers.map((seller) => (
-                <tr key={seller.id} className="hover:bg-gray-50 transition">
-                    
-                    {/* Business Info */}
-                    <td className="px-6 py-4">
-                        <div className="text-sm font-medium text-gray-900">{seller.business_name || "N/A"}</div>
-                        <div className="text-xs text-gray-500">Reg: {seller.registration_number}</div>
-                        <div className="text-xs text-gray-400 truncate max-w-[150px]">{seller.address}</div>
-                    </td>
-
-                    {/* Owner Info */}
-                    <td className="px-6 py-4">
-                        <div className="text-sm text-gray-900">{seller.owner_name}</div>
-                        <div className="text-xs text-gray-500">{seller.email}</div>
-                        <div className="text-xs text-gray-500">{seller.phone}</div>
-                    </td>
-
-                    {/* Documents */}
-                    <td className="px-6 py-4">
-                        {seller.id_document ? (
-                            <a 
-                                href={seller.id_document} 
-                                target="_blank" 
-                                rel="noopener noreferrer"
-                                className="inline-flex items-center gap-1 text-sm text-blue-600 hover:underline"
-                            >
-                                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13" /></svg>
-                                View ID
-                            </a>
-                        ) : (
-                            <span className="text-xs text-gray-400 italic">No Doc</span>
-                        )}
-                    </td>
-
-                    {/* Status Badge */}
-                    <td className="px-6 py-4">
-                        <span className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium capitalize
-                            ${seller.is_approved 
-                                ? 'bg-green-100 text-green-800' 
-                                : 'bg-red-100 text-red-800 animate-pulse'}
-                        `}>
-                            {seller.is_approved ? 'Approved' : 'Pending Approval'}
-                        </span>
-                    </td>
-
-                    {/* Actions */}
-                    <td className="px-6 py-4 text-right text-sm font-medium">
-                        {actionLoading === seller.id ? (
-                             <span className="text-gray-400 text-xs">Processing...</span>
-                        ) : (
-                            <div className="flex justify-end gap-2">
-                                {!seller.is_approved ? (
-                                    <button
-                                        onClick={() => handleApproval(seller.id, true)}
-                                        className="rounded bg-green-600 px-3 py-1.5 text-xs font-semibold text-white shadow-sm hover:bg-green-500 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-green-600"
-                                    >
-                                        Approve
-                                    </button>
-                                ) : (
-                                    <button
-                                        onClick={() => handleApproval(seller.id, false)}
-                                        className="rounded bg-white px-3 py-1.5 text-xs font-semibold text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 hover:bg-gray-50"
-                                    >
-                                        Suspend
-                                    </button>
-                                )}
-                            </div>
-                        )}
-                    </td>
-                </tr>
-                ))
-            )}
+          <tbody className="divide-y divide-gray-200">
+            {filteredUsers.map(user => (
+              <tr key={user.id} className="hover:bg-gray-50 transition">
+                <td className="px-6 py-4">
+                  <div className="text-sm font-medium text-gray-900">{user.username}</div>
+                  <div className="text-xs text-gray-500">{user.email}</div>
+                  {user.business_name && <div className="text-[10px] text-blue-600 font-bold mt-1 uppercase">{user.business_name}</div>}
+                </td>
+                <td className="px-6 py-4 capitalize text-sm">{user.role}</td>
+                <td className="px-6 py-4">
+                  {user.is_approved ? (
+                    <span className="px-2 py-1 rounded text-[10px] font-bold bg-green-100 text-green-800 border border-green-200">Verified</span>
+                  ) : (
+                    <span className="px-2 py-1 rounded text-[10px] font-bold bg-yellow-100 text-yellow-800 border border-yellow-200">Unverified</span>
+                  )}
+                </td>
+                <td className="px-6 py-4 text-right space-x-3">
+                  <button onClick={() => setSelectedUser(user)} className="text-blue-600 hover:underline text-xs font-bold">View</button>
+                  <button onClick={() => handleRestrict(user.id)} className="text-orange-500 hover:text-orange-700 text-xs font-bold">Restrict</button>
+                  <button onClick={() => handleDelete(user.id)} className="text-red-500 hover:text-red-700 text-xs font-bold">Delete</button>
+                </td>
+              </tr>
+            ))}
           </tbody>
         </table>
       </div>
+
+      {/* --- View / Document Modal --- */}
+      {selectedUser && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
+            <div className="bg-white rounded-xl shadow-2xl w-full max-w-lg overflow-hidden flex flex-col max-h-[90vh]">
+                <div className="p-6 border-b border-gray-100 flex justify-between items-center bg-gray-50">
+                    <h2 className="text-xl font-bold text-gray-900">User Details</h2>
+                    <button onClick={() => setSelectedUser(null)} className="text-gray-400 hover:text-gray-600 text-xl">✕</button>
+                </div>
+                
+                <div className="p-6 overflow-y-auto space-y-6">
+                    <div className="grid grid-cols-2 gap-4 border-b pb-4">
+                        <div>
+                            <p className="text-[10px] font-bold text-gray-400 uppercase">Account</p>
+                            <p className="text-sm text-gray-900 font-semibold">{selectedUser.username}</p>
+                        </div>
+                        <div>
+                            <p className="text-[10px] font-bold text-gray-400 uppercase">Email</p>
+                            <p className="text-sm text-gray-900">{selectedUser.email}</p>
+                        </div>
+                    </div>
+
+                    {selectedUser.role === 'seller' && (
+                        <div>
+                            <p className="text-[10px] font-bold text-gray-400 uppercase mb-3">Seller Verification Document</p>
+                            {selectedUser.id_document ? (
+                                <div className="border rounded-lg bg-gray-50 p-2 shadow-inner">
+                                    <img 
+                                        src={`http://127.0.0.1:8000${selectedUser.id_document}`} 
+                                        alt="Document Preview" 
+                                        className="w-full rounded h-auto max-h-[300px] object-contain"
+                                    />
+                                </div>
+                            ) : (
+                                <p className="text-red-500 text-xs italic bg-red-50 p-3 rounded">No documents uploaded.</p>
+                            )}
+                        </div>
+                    )}
+                </div>
+
+                <div className="p-4 border-t border-gray-100 bg-gray-50 flex justify-end gap-2">
+                    <button onClick={() => setSelectedUser(null)} className="px-4 py-2 text-sm text-gray-500 font-medium">Close</button>
+                    {selectedUser.role === 'seller' && !selectedUser.is_approved && (
+                        <button 
+                            onClick={() => handleApprove(selectedUser.id)}
+                            className="px-4 py-2 bg-green-600 text-white rounded-md text-sm font-bold hover:bg-green-700 shadow-md"
+                        >
+                            Approve Seller
+                        </button>
+                    )}
+                </div>
+            </div>
+        </div>
+      )}
     </div>
   );
 }

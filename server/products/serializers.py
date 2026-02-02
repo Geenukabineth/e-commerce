@@ -3,6 +3,12 @@ from rest_framework import serializers
 from .models import Product
 
 class ProductSerializer(serializers.ModelSerializer):
-    class __clat__:
+    seller_name = serializers.ReadOnlyField(source='seller.username')
+
+    class Meta:
         model = Product
-        fields = '__all__'
+        fields = [
+            'id', 'name', 'description', 'price', 'stock_quantity', 
+            'status', 'internal_interest', 'external_interest', 
+            'demand_score', 'seller_name', 'created_at'
+        ]   

@@ -112,6 +112,25 @@ class SellerListView(APIView):
         sellers = UserProfile.objects.filter(role='seller').order_by('-user__date_joined')
         serializer = self.serializer_class(sellers, many=True)
         return Response(serializer.data)
+    def post(self, request, pk):
+        try:
+            profile = UserProfile.objects.get(user__id=pk, role='seller')
+            profile.is_approved = True
+            profile.save()
+            return Response({"message": "Seller approved successfully"}, status=status.HTTP_200_OK)
+        except UserProfile.DoesNotExist:
+            return Response({"detail": "Seller profile not found."}, status=status.HTTP_404_NOT_FOUND)
+    
+class RestrictSellerView(APIView):
+    permission_classes = [permissions.IsAdminUser]
+    def post(self, request, pk):
+        try:
+            profile = UserProfile.objects.get(user__id=pk, role='seller')
+            profile.is_approved = False
+            profile.save()
+            return Response({"message": "Seller restricted successfully"}, status=status.HTTP_200_OK)
+        except UserProfile.DoesNotExist:
+            return Response({"detail": "Seller profile not found."}, status=status.HTTP_404_NOT_FOUND)
     
 
 # server/Profile/views.py
@@ -129,13 +148,11 @@ class UserListView(generics.ListAPIView):
     serializer_class = UserManagementSerializer
     permission_classes = [permissions.IsAdminUser]
 
-# 2. DELETE USER (Admin Only)
 class UserDeleteView(APIView):
     permission_classes = [permissions.IsAdminUser]
 
     def delete(self, request, pk):
         try:
-            # We fetch the standard User model by ID
             user = User.objects.get(pk=pk)
             
             # Safety: Prevent deleting yourself
@@ -152,15 +169,3 @@ class UserDeleteView(APIView):
         except User.DoesNotExist:
             return Response({"detail": "User not found."}, status=status.HTTP_404_NOT_FOUND)
 
-
-class ApproveSellerView(APIView):
-    permission_classes = [permissions.IsAdminUser]
-
-    def post(self, request, pk):
-        try:
-            profile = UserProfile.objects.get(user__id=pk, role='seller')
-            profile.is_approved = True
-            profile.save()
-            return Response({"message": "Seller approved successfully"}, status=status.HTTP_200_OK)
-        except UserProfile.DoesNotExist:
-            return Response({"detail": "Seller profile not found."}, status=status.HTTP_404_NOT_FOUND)

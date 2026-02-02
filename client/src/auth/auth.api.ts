@@ -48,16 +48,25 @@ export async function registerSellerApi(formData: FormData): Promise<{message: s
 }   
 
 export async function approveSellerApi(sellerId: number): Promise<{message: string}> {
-    const res = await http.post(`/v1/admin/approve-seller/${sellerId}/`);
+    const res = await http.post(`/v1/admin/sellers/${sellerId}/approve/`);
     return res.data;
 }
 export async function getAllSellersApi(): Promise<Profile[]> {
-    const res = await http.get("/v1/admin/sellers/");
+    const res = await http.get("/v1/users/sellers/");
     return res.data as Profile[];
 }
 export async function getPendingSellersApi(): Promise<Profile[]> {
     const res = await http.get("/v1/admin/sellers/?is_approved=false");
     return res.data as Profile[];
+}
+export async function deleteSellerApi(sellerId: number): Promise<{message: string}> {
+    const res = await http.delete(`/v1/users/sellers/${sellerId}/`);
+    return res.data;
+}
+
+export async function restrictSellerApi(sellerId: number): Promise<{message: string}> {
+    const res = await http.post(`/v1/admin/sellers/${sellerId}/restrict/`);
+    return res.data;
 }
 
 

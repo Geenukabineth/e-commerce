@@ -25,7 +25,7 @@ export default function Sidebar({ activeTab, onTabChange }: SidebarProps) {
       <nav className="mt-6 flex flex-col gap-1 px-4">
         {role &&
           SIDEBAR_ROUTES
-            .filter(route => route.roles.includes(role)) // 🔥 role check
+            .filter(route => route.roles.includes(role)) 
             .map(route => (
               <SidebarItem
                 key={route.tab}
@@ -37,7 +37,6 @@ export default function Sidebar({ activeTab, onTabChange }: SidebarProps) {
       </nav>
 
       <div className="mt-auto p-4 border-t border-gray-800">
-        <div className="text-xs text-gray-500 text-center">v1.0.0</div>
       </div>
     </aside>
   );

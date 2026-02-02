@@ -16,6 +16,8 @@ export type Profile ={
     registration_number?: string;
     address?: string;
     id_document?: string;
+    risk_score?: number; 
+    trust_score?: number;
     status?: 'active' | 'inactive';
 
 }
@@ -58,3 +60,4 @@ export interface Product {
   price: number;
   stock_quantity: number;
 }
+

@@ -85,15 +85,7 @@ export default function Login() {
             Sign in with Google
           </button>
 
-          <button
-            onClick={() => handleSocialLogin("Facebook")}
-            className="flex w-full items-center justify-center gap-2 rounded-md bg-[#1877F2] px-4 py-2 text-sm font-medium text-white transition hover:bg-[#166fe5]"
-          >
-            <svg className="h-5 w-5 fill-current" viewBox="0 0 24 24">
-              <path d="M9.101 23.691v-7.98H6.627v-3.667h2.474v-1.58c0-4.085 1.848-5.978 5.858-5.978.401 0 .955.042 1.468.103a8.68 8.68 0 0 1 1.141.195v3.325a8.623 8.623 0 0 0-.653-.036c-2.148 0-2.971.956-2.971 3.594v.376h3.817l-.571 3.667h-3.246v8.006A12.603 12.603 0 0 0 24 11.588C24 5.205 18.627 0 12 0S0 5.205 0 11.588c0 5.992 4.815 10.896 11.167 11.564 1.23.129 1.465-.465.934-.461h-3z" />
-            </svg>
-            Sign in with Facebook
-          </button>
+          
         </div>
 
         <div className="relative my-6 text-center">

@@ -69,14 +69,19 @@ class ChangePasswordSerializer(serializers.Serializer):
             raise serializers.ValidationError("Old password is incorrect")
         return value
 
+# serializers.py
+# ... (Keep existing imports and serializers) ...
+
 from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
 from rest_framework import exceptions
 
 class MyTokenObtainPairSerializer(TokenObtainPairSerializer):
     def validate(self, attrs):
+        # The parent validate returns the standard 'refresh' and 'access' tokens
         data = super().validate(attrs)
         
         try:
+            # self.user is the Django User instance
             profile = self.user.profile
             # BLOCK LOGIN if user is a seller and NOT approved
             if profile.role == 'seller' and not profile.is_approved:
@@ -84,11 +89,12 @@ class MyTokenObtainPairSerializer(TokenObtainPairSerializer):
                     "Your seller account is pending approval. Please wait for admin verification."
                 )
             
-            # Add role to response
+            # Add role and status to response for frontend ease
             data['role'] = profile.role
             data['username'] = self.user.username
+            data['is_approved'] = profile.is_approved
             
-        except UserProfile.DoesNotExist:
+        except Exception:
             pass 
         return data
     
@@ -143,13 +149,16 @@ from django.contrib.auth.models import User
 # ... existing serializers ...
 
 class UserManagementSerializer(serializers.ModelSerializer):
-    # Map 'id' directly to the User model ID (not the profile ID) for easier deletion
     id = serializers.IntegerField(source='user.id', read_only=True)
     username = serializers.CharField(source='user.username', read_only=True)
     email = serializers.EmailField(source='user.email', read_only=True)
     is_superuser = serializers.BooleanField(source='user.is_superuser', read_only=True)
     date_joined = serializers.DateTimeField(source='user.date_joined', read_only=True)
+    is_approved = serializers.BooleanField(read_only=True)
+    id_document = serializers.FileField(read_only=True) # Returns the URL to the file
+    business_name = serializers.CharField(read_only=True)
 
     class Meta:
         model = UserProfile
-        fields = ['id', 'username', 'email', 'phone', 'role', 'is_superuser', 'date_joined']
+        fields = ['id', 'username', 'email', 'phone', 'role', 'is_superuser', 'date_joined' ,
+                  'is_approved', 'business_name', 'id_document']
