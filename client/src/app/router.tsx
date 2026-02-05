@@ -9,6 +9,8 @@ import AdminDashboard from "../components/admin/dashboard";
 import RegisterSeller from "../components/page/RegisterSeller";
 import SellerDashboard from "../components/seller/SellerDashboard";
 import UserDashboard from "../components/Buyer/UserDashboard";
+import SettingsPage from "../components/page/Settings";
+import NotificationPage from "../components/page/notifications";
 
 export const router = createBrowserRouter([
   {
@@ -20,12 +22,16 @@ export const router = createBrowserRouter([
 
       {
         element: <RequireAuth />,
-        children: [{ path: "/profile", element: <Profile /> }],
+        children: [
+          { path: "/profile", element: <Profile /> },
+          { path: "/notifications", element: <NotificationPage /> },
+        ],
       },
       { path: "/admin", element: <AdminDashboard /> },
       { path: "/seller/dashboard", element: <SellerDashboard /> },
       { path: "/register-seller", element: <RegisterSeller/> },
-      { path: "/dashboard", element: <UserDashboard/> }
+      { path: "/dashboard", element: <UserDashboard/> },
+      {path: "/settings", element: <SettingsPage/>}
     ],
   },
 ]);

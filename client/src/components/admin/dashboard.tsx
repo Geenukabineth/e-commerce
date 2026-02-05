@@ -2,27 +2,19 @@ import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../../auth/auth.store";
 import Products from "./Products"; 
-import Sidebar from "./Sidebar"; 
+import Sidebar from "../page/Sidebar"; 
 import Overview from "./overview";
 import AddUser from "./AddUser";
+import FraudDetectionDashboard from "./FraudDetectionDashboard";
+import PayoutManagement from "./PayoutManagement";
+import WalletHub from "../page/WalletHub";
+import SalesManagementDashboard from "./SalesManagement";
 
 export default function AdminDashboard() {
   // 1. GET isLoading FROM STORE
-  const { profile, isLoading } = useAuth(); 
-  const navigate = useNavigate();
+  const { profile, isLoading } = useAuth();  
   const [activeTab, setActiveTab] = useState("overview");
-
-  // --- SECURITY & REDIRECT CHECK ---
-  useEffect(() => {
-    // 2. WAIT FOR LOADING TO FINISH BEFORE REDIRECTING
-    // If we are still loading, do nothing.
-    // Only redirect if loading is DONE and permission is missing.
-    if (!isLoading) {
-       if (!profile || profile.role !== "admin") {
-         navigate("/"); 
-       }
-    }
-  }, [profile, isLoading, navigate]); // Add isLoading to dependencies
+ // Add isLoading to dependencies
 
   // --- 3. SHOW LOADING SCREEN ---
   // While waiting for session restore, show this instead of redirecting
@@ -54,7 +46,11 @@ export default function AdminDashboard() {
 
         {activeTab === "overview" && <Overview />}         
         {activeTab === "users" && <AddUser />}
-        {activeTab === "products" && <Products />} 
+        {activeTab === "products" && <Products />}
+        {activeTab === "fraud-detection" && <FraudDetectionDashboard />} 
+        {activeTab === "payouts" && <PayoutManagement />}
+        {activeTab === "wallet" && <WalletHub />}
+        {activeTab === "sales" && <SalesManagementDashboard />}
         {/* {activeTab === "orders" && <div>Orders coming soon...</div>} */}
         {/* {activeTab === "users" && <div>Users coming soon...</div>} */}
       </main>

@@ -1,23 +1,20 @@
-import React, { useState, useEffect } from "react";
-import { getProfileApi, updateProfileApi, changePasswordApi } from "../../auth/auth.api";
+import { useState, useEffect } from "react";
+import { getProfileApi } from "../../auth/auth.api";
 import { useAuth } from "../../auth/auth.store";
 import type { Profile } from "../../auth/auth.types";
+import { 
+    Mail, 
+    Phone, 
+    Briefcase, 
+    Shield, 
+    User, 
+    CheckCircle2, 
+    AlertCircle 
+} from "lucide-react";
 
-export default function Settings() {
+export default function ProfileView() {
   const { setProfile } = useAuth();
   const [profile, setLocalProfile] = useState<Profile | null>(null);
-  const [image, setImage] = useState<File | null>(null);
-  
-  // Loading states
-  const [loadingProfile, setLoadingProfile] = useState(false);
-  const [loadingPass, setLoadingPass] = useState(false);
-
-  // Password Form State
-  const [passForm, setPassForm] = useState({
-    old_password: "",
-    new_password: "",
-    confirm_password: "",
-  });
 
   // Fetch Profile on Mount
   useEffect(() => {
@@ -27,159 +24,150 @@ export default function Settings() {
     });
   }, [setProfile]);
 
-  
-
-  // --- HANDLER: Update Profile Image ---
-  const handleSaveProfile = async () => {
-    if (!image) return;
-    setLoadingProfile(true);
-    const fd = new FormData();
-    fd.append("image", image);
-
-    try {
-      const updated = await updateProfileApi(fd);
-      setLocalProfile(updated);
-      setProfile(updated);
-      alert("Profile image updated successfully!");
-    } catch (error) {
-      alert("Failed to update profile.");
-    } finally {
-      setLoadingProfile(false);
-    }
-  };
-
-  // --- HANDLER: Change Password ---
-  const handleChangePassword = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (passForm.new_password !== passForm.confirm_password) {
-      alert("New passwords do not match!");
-      return;
-    }
-
-    setLoadingPass(true);
-    try {
-      await changePasswordApi({
-        old_password: passForm.old_password,
-        new_password: passForm.new_password,
-      });
-      alert("Password changed successfully!");
-      setPassForm({ old_password: "", new_password: "", confirm_password: "" });
-    } catch (error: any) {
-      alert("Error: " + (error.response?.data?.old_password?.[0] || "Failed to change password"));
-    } finally {
-      setLoadingPass(false);
-    }
-  };
-
-  if (!profile) return <div>Loading settings...</div>;
-
-  return (
-    <div className="grid grid-cols-1 gap-8 lg:grid-cols-2">
-      
-      {/* CARD 1: Profile Settings (From your original Profile.tsx) */}
-      <div className="rounded-xl border bg-white p-6 shadow-sm">
-        <h2 className="text-xl font-bold text-gray-900">Profile Settings</h2>
-        <p className="mb-6 text-sm text-gray-500">Update your photo and personal details.</p>
-
-        <div className="flex flex-col items-center space-y-4">
-          {/* Image Preview */}
-          <div className="relative h-32 w-32 overflow-hidden rounded-full border-4 border-gray-100 shadow-sm">
-            {profile.image ? (
-              <img src={profile.image} alt="Profile" className="h-full w-full object-cover" />
-            ) : (
-              <div className="flex h-full w-full items-center justify-center bg-gray-200 text-gray-400">
-                No Img
-              </div>
-            )}
-          </div>
-
-          {/* User Details (Read Only) */}
-          <div className="w-full space-y-3 rounded-lg bg-gray-50 p-4 text-sm">
-             <div className="flex justify-between border-b pb-2">
-                <span className="font-medium text-gray-600">Username</span>
-                <span className="text-gray-900">{profile.username}</span>
-             </div>
-             <div className="flex justify-between border-b pb-2">
-                <span className="font-medium text-gray-600">Email</span>
-                <span className="text-gray-900">{profile.email}</span>
-             </div>
-             <div className="flex justify-between">
-                <span className="font-medium text-gray-600">Role</span>
-                <span className="capitalize text-blue-600">{profile.role}</span>
-             </div>
-          </div>
-
-          {/* Image Upload Input */}
-          <div className="w-full">
-            <label className="mb-1 block text-sm font-medium text-gray-700">Change Photo</label>
-            <input
-              type="file"
-              accept="image/*"
-              className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm file:mr-4 file:rounded-full file:border-0 file:bg-blue-50 file:px-4 file:py-2 file:text-sm file:font-semibold file:text-blue-700 hover:file:bg-blue-100"
-              onChange={(e) => setImage(e.target.files?.[0] || null)}
-            />
-          </div>
-
-          <button
-            onClick={handleSaveProfile}
-            disabled={loadingProfile || !image}
-            className="w-full rounded-lg bg-black py-2.5 text-sm font-medium text-white shadow-sm hover:bg-gray-800 disabled:opacity-50"
-          >
-            {loadingProfile ? "Uploading..." : "Save Profile Image"}
-          </button>
-        </div>
-      </div>
-
-      {/* CARD 2: Security (Change Password) */}
-      <div className="rounded-xl border bg-white p-6 shadow-sm">
-        <h2 className="text-xl font-bold text-gray-900">Security</h2>
-        <p className="mb-6 text-sm text-gray-500">Ensure your account is using a strong password.</p>
-
-        <form onSubmit={handleChangePassword} className="space-y-4">
-          <div>
-            <label className="mb-1 block text-sm font-medium text-gray-700">Current Password</label>
-            <input
-              type="password"
-              required
-              className="w-full rounded-lg border border-gray-300 px-4 py-2 text-sm focus:border-blue-500 focus:ring-blue-500"
-              value={passForm.old_password}
-              onChange={(e) => setPassForm({ ...passForm, old_password: e.target.value })}
-            />
-          </div>
-
-          <div>
-            <label className="mb-1 block text-sm font-medium text-gray-700">New Password</label>
-            <input
-              type="password"
-              required
-              className="w-full rounded-lg border border-gray-300 px-4 py-2 text-sm focus:border-blue-500 focus:ring-blue-500"
-              value={passForm.new_password}
-              onChange={(e) => setPassForm({ ...passForm, new_password: e.target.value })}
-            />
-          </div>
-
-          <div>
-            <label className="mb-1 block text-sm font-medium text-gray-700">Confirm New Password</label>
-            <input
-              type="password"
-              required
-              className="w-full rounded-lg border border-gray-300 px-4 py-2 text-sm focus:border-blue-500 focus:ring-blue-500"
-              value={passForm.confirm_password}
-              onChange={(e) => setPassForm({ ...passForm, confirm_password: e.target.value })}
-            />
-          </div>
-
-          <div className="pt-2">
-             <button
-              type="submit"
-              disabled={loadingPass}
-              className="w-full rounded-lg bg-red-600 py-2.5 text-sm font-medium text-white shadow-sm hover:bg-red-700 disabled:opacity-50"
-            >
-              {loadingPass ? "Updating Password..." : "Update Password"}
-            </button>
-          </div>
-        </form>
-      </div>
+  if (!profile) return (
+    <div className="min-h-screen flex items-center justify-center text-gray-500">
+        Loading profile...
     </div>
   );
+
+  return (
+    <div className="max-w-3xl mx-auto p-6">
+        {/* Main Profile Card */}
+        <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-gray-200 dark:border-gray-700 overflow-hidden">
+            
+            {/* Header Section */}
+            <div className="bg-gradient-to-b from-indigo-50 to-white dark:from-gray-700 dark:to-gray-800 p-8 flex flex-col items-center text-center border-b border-gray-100 dark:border-gray-700">
+                
+                {/* Profile Image (Read Only) */}
+                <div className="relative mb-4">
+                    <div className="h-32 w-32 rounded-full border-4 border-white dark:border-gray-600 shadow-lg overflow-hidden bg-gray-200 dark:bg-gray-700 flex items-center justify-center">
+                        {profile.image ? (
+                            <img src={profile.image} alt={profile.username} className="h-full w-full object-cover" />
+                        ) : (
+                            <span className="text-4xl font-bold text-gray-400 dark:text-gray-500">
+                                {profile.username.charAt(0).toUpperCase()}
+                            </span>
+                        )}
+                    </div>
+                    {/* Role Badge */}
+                    <div className="absolute bottom-0 right-0 bg-indigo-600 text-white p-1.5 rounded-full shadow-sm border-2 border-white dark:border-gray-800">
+                        <Shield className="h-4 w-4" />
+                    </div>
+                </div>
+                
+                <h1 className="text-2xl font-bold text-gray-900 dark:text-white">{profile.username}</h1>
+                <p className="text-sm font-medium text-indigo-600 dark:text-indigo-400 capitalize mt-1">
+                    {profile.role} Account
+                </p>
+
+                {/* Status Badges */}
+                <div className="flex gap-2 mt-4">
+                    {profile.is_approved ? (
+                        <span className="inline-flex items-center gap-1 px-3 py-1 bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400 text-xs font-bold rounded-full">
+                            <CheckCircle2 className="h-3 w-3" /> Verified
+                        </span>
+                    ) : (
+                        <span className="inline-flex items-center gap-1 px-3 py-1 bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400 text-xs font-bold rounded-full">
+                            <AlertCircle className="h-3 w-3" /> Pending Verification
+                        </span>
+                    )}
+                    <span className={`px-3 py-1 text-xs font-bold rounded-full capitalize ${
+                        profile.status === 'active' 
+                        ? 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400' 
+                        : 'bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-300'
+                    }`}>
+                        {profile.status || 'Active'}
+                    </span>
+                </div>
+            </div>
+
+            {/* Details Section */}
+            <div className="p-8 space-y-8">
+                
+                {/* Contact Information */}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <InfoField 
+                        label="Email Address" 
+                        value={profile.email} 
+                        icon={<Mail className="h-4 w-4"/>} 
+                    />
+                    <InfoField 
+                        label="Phone Number" 
+                        value={profile.phone || "Not provided"} 
+                        icon={<Phone className="h-4 w-4"/>} 
+                    />
+                    <InfoField 
+                        label="User ID" 
+                        value={`#${profile.id}`} 
+                        icon={<User className="h-4 w-4"/>} 
+                    />
+                    
+                    {/* Show Business Name ONLY if seller */}
+                    {profile.role === 'seller' && (
+                        <InfoField 
+                            label="Business Name" 
+                            value={profile.business_name || "Not registered"} 
+                            icon={<Briefcase className="h-4 w-4"/>} 
+                        />
+                    )}
+                </div>
+
+                {/* Bio Section */}
+                <div className="bg-gray-50 dark:bg-gray-700/50 p-5 rounded-xl border border-gray-100 dark:border-gray-700">
+                    <p className="text-xs font-bold text-gray-400 dark:text-gray-500 uppercase mb-2 tracking-wide">
+                        About
+                    </p>
+                    <p className="text-gray-700 dark:text-gray-300 text-sm leading-relaxed">
+                        {profile.bio || "No bio information available."}
+                    </p>
+                </div>
+
+                {/* Additional Seller Info (If applicable) */}
+                {profile.role === 'seller' && (
+                    <div className="border-t border-gray-100 dark:border-gray-700 pt-6">
+                        <h3 className="text-sm font-bold text-gray-900 dark:text-white mb-4">Business Details</h3>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
+                            <div className="flex justify-between">
+                                <span className="text-gray-500 dark:text-gray-400">Category</span>
+                                <span className="font-medium text-gray-900 dark:text-white">{profile.category || "N/A"}</span>
+                            </div>
+                            <div className="flex justify-between">
+                                <span className="text-gray-500 dark:text-gray-400">Owner Name</span>
+                                <span className="font-medium text-gray-900 dark:text-white">{profile.owner_name || "N/A"}</span>
+                            </div>
+                            <div className="flex justify-between">
+                                <span className="text-gray-500 dark:text-gray-400">Registration #</span>
+                                <span className="font-medium text-gray-900 dark:text-white">{profile.registration_number || "N/A"}</span>
+                            </div>
+                            <div className="flex justify-between">
+                                <span className="text-gray-500 dark:text-gray-400">Trust Score</span>
+                                <span className="font-bold text-green-600">{profile.trust_score || 0}/100</span>
+                            </div>
+                        </div>
+                    </div>
+                )}
+
+            </div>
+        </div>
+    </div>
+  );
+}
+
+// Helper Component for consistent field styling
+function InfoField({ label, value, icon }: { label: string, value: string, icon: any }) {
+    return (
+        <div className="flex items-start gap-3">
+            <div className="mt-1 p-2 bg-gray-100 dark:bg-gray-700 rounded-lg text-gray-500 dark:text-gray-400">
+                {icon}
+            </div>
+            <div>
+                <p className="text-xs font-bold text-gray-400 dark:text-gray-500 uppercase tracking-wide">
+                    {label}
+                </p>
+                <p className="text-gray-900 dark:text-white font-medium text-sm mt-0.5">
+                    {value}
+                </p>
+            </div>
+        </div>
+    )
 }

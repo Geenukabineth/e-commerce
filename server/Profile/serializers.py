@@ -47,11 +47,13 @@ class UserProfileSerializer(serializers.ModelSerializer):
     image = serializers.ImageField(required=False)
     is_superuser = serializers.BooleanField(source="user.is_superuser", read_only=True)
     role = serializers.CharField(read_only=True)
+    is_approved = serializers.BooleanField(read_only=True)
+    category = serializers.CharField(read_only=True)
 
     class Meta:
         model = UserProfile
-        fields = ["username", "email", "phone", "bio", "image", "is_superuser", "role"]
-        read_only_fields = ["username", "email", "role", "is_superuser"]
+        fields = ["username", "email", "phone", "bio", "image", "is_superuser", "role", "is_approved", "category"]
+        read_only_fields = ["username", "email", "role", "is_superuser", "is_approved", "category"]
 
     def get_role(self, obj):
         if obj.user.is_superuser:

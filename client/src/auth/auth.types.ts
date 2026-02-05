@@ -59,5 +59,14 @@ export interface Product {
   description: string;
   price: number;
   stock_quantity: number;
+  img?: string | null;
+  status?: string;  
+  category?: string;
+  seller_name?: string;
+  created_at?: string;
+  updated_at?: string;
+  internal_interest: number; 
+  external_interest: string; 
+  
 }
 

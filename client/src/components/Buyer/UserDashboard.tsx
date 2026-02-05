@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { useAuth } from "../../auth/auth.store";
-import Sidebar from "../admin/Sidebar"; // Assuming you have a reusable Sidebar or a specific UserSidebar
+import Sidebar from "../page/Sidebar"; // Assuming you have a reusable Sidebar or a specific UserSidebar
 
 // Mock Data for UI visualization (Replace with API calls later)
 const RECENT_ORDERS = [
