@@ -6,6 +6,9 @@ import Inventory from "./Inventory";
 import Overview from "./sellerOverview"; 
 import SalesManagementDashboard from "../admin/SalesManagement";
 import SellerOrderDashboard from "./Order";
+import type CustomerCommunicationDashboard from "../page/Communication";
+import Communication from "../page/Communication";
+import ReviewManagementDashboard from "./Review";
 
 export default function SellerDashboard() {
   const [profile, setProfile] = useState<Profile | null>(null);
@@ -48,6 +51,8 @@ export default function SellerDashboard() {
           {/* Orders Tab: Placeholder */}
           {activeTab === "orders" && <SellerOrderDashboard/>}
           {activeTab === "sales" && <SalesManagementDashboard />}
+          {activeTab === "communication" && <Communication />}
+          {activeTab === "reviews" && <ReviewManagementDashboard />}
 
 
         </div>

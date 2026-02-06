@@ -15,7 +15,15 @@ import {
   CheckCheck,
   Package,
   Wallet,
-  Info 
+  Info,
+  MessageSquare, 
+  Gift,          
+  CreditCard,
+  ShoppingCart,
+  X,            
+  Minus,        
+  Plus,         
+  Trash2        
 } from "lucide-react"; 
 
 export default function App() {
@@ -25,8 +33,9 @@ export default function App() {
   // --- UI STATE ---
   const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
   const [isNotifOpen, setIsNotifOpen] = useState(false);
+  const [isCartOpen, setIsCartOpen] = useState(false);
   
-  // --- REFS (For clicking outside) ---
+  // --- REFS ---
   const userMenuRef = useRef<HTMLDivElement>(null);
   const notifRef = useRef<HTMLDivElement>(null);
 
@@ -34,14 +43,22 @@ export default function App() {
   const [theme, setTheme] = useState(() => localStorage.getItem("theme") || "light");
   const isLoggedIn = !!tokenStore.getAccess();
 
-  // --- MOCK NOTIFICATIONS DATA ---
+  // --- MOCK NOTIFICATIONS ---
   const [notifications, setNotifications] = useState([
     { id: 1, title: "New Order Received", desc: "Order #ORD-221 has been placed.", time: "2m ago", unread: true, type: 'order' },
     { id: 2, title: "Payout Processed", desc: "$500.00 sent to your bank.", time: "1h ago", unread: true, type: 'finance' },
     { id: 3, title: "System Update", desc: "Maintenance scheduled for tonight.", time: "5h ago", unread: false, type: 'system' },
   ]);
 
+  // --- MOCK CART DATA ---
+  const [cartItems, setCartItems] = useState([
+    { id: 1, name: "Wireless Headphones", price: 120.00, quantity: 1, image: "bg-gray-200" },
+    { id: 2, name: "Mechanical Keyboard", price: 85.50, quantity: 1, image: "bg-gray-200" },
+  ]);
+
   const unreadCount = notifications.filter(n => n.unread).length;
+  const cartTotal = cartItems.reduce((acc, item) => acc + item.price * item.quantity, 0);
+  const cartCount = cartItems.reduce((acc, item) => acc + item.quantity, 0);
 
   // --- EFFECTS ---
   useEffect(() => {
@@ -54,7 +71,6 @@ export default function App() {
     localStorage.setItem("theme", theme);
   }, [theme]);
 
-  // Fetch Profile
   useEffect(() => {
     if (isLoggedIn && !profile) {
       getProfileApi()
@@ -63,7 +79,6 @@ export default function App() {
     }
   }, [isLoggedIn, profile, setProfile]);
 
-  // Click Outside Handler
   useEffect(() => {
     function handleClickOutside(event: MouseEvent) {
       if (userMenuRef.current && !userMenuRef.current.contains(event.target as Node)) {
@@ -94,7 +109,20 @@ export default function App() {
     setNotifications(prev => prev.map(n => n.id === id ? ({...n, unread: false}) : n));
   };
 
-  // Helper to get icon based on notification type
+  const updateQuantity = (id: number, delta: number) => {
+    setCartItems(prev => prev.map(item => {
+        if (item.id === id) {
+            const newQty = Math.max(1, item.quantity + delta);
+            return { ...item, quantity: newQty };
+        }
+        return item;
+    }));
+  };
+
+  const removeItem = (id: number) => {
+      setCartItems(prev => prev.filter(item => item.id !== id));
+  };
+
   const getNotifIcon = (type: string) => {
     switch(type) {
       case 'order': return <Package className="h-4 w-4 text-indigo-600" />;
@@ -104,9 +132,9 @@ export default function App() {
   };
 
   return (
-    <div className="min-h-screen bg-gray-100 text-gray-900 transition-colors duration-300 dark:bg-gray-900 dark:text-gray-100">
+    <div className="h-screen bg-gray-100 text-gray-900 transition-colors duration-300 dark:bg-gray-900 dark:text-gray-100 overflow-hidden flex flex-col">
       
-      <header className="sticky top-0 z-50 border-b bg-white shadow-sm transition-colors duration-300 dark:bg-gray-800 dark:border-gray-700">
+      <header className="sticky top-0 z-40 border-b bg-white shadow-sm transition-colors duration-300 dark:bg-gray-800 dark:border-gray-700">
         <div className="mx-auto flex max-w-7xl items-center justify-between px-6 py-4">
           
           <Link to="/" className="text-xl font-extrabold uppercase tracking-wide text-indigo-600 dark:text-indigo-400">
@@ -127,13 +155,30 @@ export default function App() {
             {isLoggedIn ? (
               <div className="flex items-center gap-4">
                 
-                {/* --- COINS DISPLAY --- */}
-                <div className="hidden md:flex items-center gap-2 rounded-full bg-yellow-50 px-3 py-1.5 border border-yellow-200 dark:bg-yellow-900/20 dark:border-yellow-700/50">
-                  <Coins className="h-4 w-4 text-yellow-600 dark:text-yellow-500" />
-                  <span className="text-sm font-bold text-yellow-700 dark:text-yellow-500">
-                    1,250
-                  </span>
-                </div>
+                {/* --- COINS DISPLAY (User Only) --- */}
+                {profile?.role === 'user' && (
+                  <div className="hidden md:flex items-center gap-2 rounded-full bg-yellow-50 px-3 py-1.5 border border-yellow-200 dark:bg-yellow-900/20 dark:border-yellow-700/50">
+                    <Coins className="h-4 w-4 text-yellow-600 dark:text-yellow-500" />
+                    <span className="text-sm font-bold text-yellow-700 dark:text-yellow-500">
+                      1,250
+                    </span>
+                  </div>
+                )}
+
+                {/* --- CART BUTTON (User Only) --- */}
+                {profile?.role === 'user' && (
+                  <button 
+                      onClick={() => setIsCartOpen(true)}
+                      className="relative rounded-full p-2 text-gray-500 hover:bg-gray-100 dark:text-gray-400 dark:hover:bg-gray-700 transition-all focus:outline-none focus:ring-2 focus:ring-indigo-100 dark:focus:ring-gray-600"
+                  >
+                      <ShoppingCart className="h-5 w-5" />
+                      {cartCount > 0 && (
+                          <span className="absolute top-0 right-0 h-4 w-4 rounded-full bg-indigo-600 text-white text-[10px] font-bold flex items-center justify-center ring-2 ring-white dark:ring-gray-800">
+                              {cartCount}
+                          </span>
+                      )}
+                  </button>
+                )}
 
                 {/* --- ADVANCED NOTIFICATION BELL --- */}
                 <div className="relative" ref={notifRef}>
@@ -151,7 +196,6 @@ export default function App() {
                   {isNotifOpen && (
                     <div className="absolute right-0 mt-3 w-80 sm:w-96 origin-top-right rounded-xl bg-white shadow-xl ring-1 ring-black ring-opacity-5 dark:bg-gray-800 dark:ring-white dark:ring-opacity-10 animate-in fade-in zoom-in duration-200 overflow-hidden z-50">
                       
-                      {/* Header */}
                       <div className="px-4 py-3 border-b border-gray-100 dark:border-gray-700 flex justify-between items-center bg-gray-50/50 dark:bg-gray-800/50">
                         <div className="flex items-center gap-2">
                           <h3 className="text-sm font-bold text-gray-900 dark:text-white">Notifications</h3>
@@ -171,7 +215,6 @@ export default function App() {
                         )}
                       </div>
                       
-                      {/* List */}
                       <div className="max-h-[24rem] overflow-y-auto">
                         {notifications.length === 0 ? (
                           <div className="p-8 text-center text-gray-500 text-sm">
@@ -207,7 +250,6 @@ export default function App() {
                         )}
                       </div>
                       
-                      {/* Footer */}
                       <Link 
                         to="/notifications" 
                         onClick={() => setIsNotifOpen(false)} 
@@ -243,7 +285,7 @@ export default function App() {
                   </button>
 
                   {isUserMenuOpen && (
-                    <div className="absolute right-0 mt-3 w-56 origin-top-right rounded-xl bg-white py-2 shadow-xl ring-1 ring-black ring-opacity-5 focus:outline-none dark:bg-gray-800 dark:ring-white dark:ring-opacity-10 animate-in fade-in zoom-in duration-200 z-50">
+                    <div className="absolute right-0 mt-3 w-64 origin-top-right rounded-xl bg-white py-2 shadow-xl ring-1 ring-black ring-opacity-5 focus:outline-none dark:bg-gray-800 dark:ring-white dark:ring-opacity-10 animate-in fade-in zoom-in duration-200 z-50">
                       
                       <div className="px-4 py-3 border-b border-gray-100 dark:border-gray-700">
                         <p className="text-sm font-medium text-gray-900 dark:text-white truncate">
@@ -254,6 +296,7 @@ export default function App() {
                         </p>
                       </div>
 
+                      {/* --- ADMIN LINKS --- */}
                       {profile?.role === 'admin' && (
                           <Link
                           to="/admin"
@@ -265,6 +308,59 @@ export default function App() {
                         </Link>
                       )}
 
+                      {/* --- USER SPECIFIC LINKS --- */}
+                      {profile?.role === 'user' && (
+                        <>
+                          <Link
+                            to="/communication"
+                            className="flex items-center gap-2 px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 dark:text-gray-200 dark:hover:bg-gray-700"
+                            onClick={() => setIsUserMenuOpen(false)}
+                          >
+                            <MessageSquare className="h-4 w-4 text-blue-500" />
+                            Messages
+                          </Link>
+                          
+                          <Link
+                            to="/orders"
+                            className="flex items-center gap-2 px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 dark:text-gray-200 dark:hover:bg-gray-700"
+                            onClick={() => setIsUserMenuOpen(false)}
+                          >
+                            <Package className="h-4 w-4 text-orange-500" />
+                            Order Tracking
+                          </Link>
+
+                          <Link
+                            to="/loyalty"
+                            className="flex items-center gap-2 px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 dark:text-gray-200 dark:hover:bg-gray-700"
+                            onClick={() => setIsUserMenuOpen(false)}
+                          >
+                            <Gift className="h-4 w-4 text-pink-500" />
+                            Loyalty & Rewards
+                          </Link>
+
+                          <Link
+                            to="/wallet"
+                            className="flex items-center gap-2 px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 dark:text-gray-200 dark:hover:bg-gray-700"
+                            onClick={() => setIsUserMenuOpen(false)}
+                          >
+                            <Wallet className="h-4 w-4 text-green-600" />
+                            My Wallet
+                          </Link>
+
+                          <Link
+                            to="/billing"
+                            className="flex items-center gap-2 px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 dark:text-gray-200 dark:hover:bg-gray-700"
+                            onClick={() => setIsUserMenuOpen(false)}
+                          >
+                            <CreditCard className="h-4 w-4 text-purple-500" />
+                            Saved Cards & Subs
+                          </Link>
+                          
+                          <div className="border-t border-gray-100 my-1 dark:border-gray-700"></div>
+                        </>
+                      )}
+
+                      {/* --- COMMON LINKS --- */}
                       <Link
                         to="/profile"
                         className="flex items-center gap-2 px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 dark:text-gray-200 dark:hover:bg-gray-700"
@@ -316,9 +412,103 @@ export default function App() {
         </div>
       </header>
       
-      <main className="mx-auto max-w-7xl p-6">
+      <main className="mx-auto max-w-7xl p-6 flex-1 overflow-y-auto w-full">
         <Outlet />
       </main>
+
+      {/* --- SLIDE-OVER CART SIDEBAR --- */}
+      {/* Backdrop */}
+      {isCartOpen && (
+        <div 
+            className="fixed inset-0 bg-black/20 backdrop-blur-sm z-[60]"
+            onClick={() => setIsCartOpen(false)}
+        ></div>
+      )}
+
+      {/* Sidebar */}
+      <div className={`fixed top-0 right-0 h-full w-full sm:w-[400px] bg-white dark:bg-gray-900 shadow-2xl transform transition-transform duration-300 z-[70] flex flex-col ${isCartOpen ? 'translate-x-0' : 'translate-x-full'}`}>
+          {/* Cart Header */}
+          <div className="px-6 py-4 border-b border-gray-100 dark:border-gray-800 flex justify-between items-center">
+              <h2 className="text-lg font-bold text-gray-900 dark:text-white flex items-center gap-2">
+                  <ShoppingCart className="h-5 w-5" /> Your Cart
+                  <span className="bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400 text-xs px-2 py-0.5 rounded-full">{cartCount} items</span>
+              </h2>
+              <button 
+                  onClick={() => setIsCartOpen(false)}
+                  className="p-2 rounded-full hover:bg-gray-100 dark:hover:bg-gray-800 text-gray-500 dark:text-gray-400 transition"
+              >
+                  <X className="h-5 w-5" />
+              </button>
+          </div>
+
+          {/* Cart Items */}
+          <div className="flex-1 overflow-y-auto p-6 space-y-6">
+              {cartItems.length === 0 ? (
+                  <div className="flex flex-col items-center justify-center h-full text-center text-gray-500">
+                      <div className="p-4 bg-gray-50 dark:bg-gray-800 rounded-full mb-4">
+                          <ShoppingCart className="h-8 w-8 text-gray-400" />
+                      </div>
+                      <p className="font-medium">Your cart is empty.</p>
+                      <button 
+                          onClick={() => setIsCartOpen(false)} 
+                          className="mt-4 text-indigo-600 font-bold hover:underline text-sm"
+                      >
+                          Continue Shopping
+                      </button>
+                  </div>
+              ) : (
+                  cartItems.map(item => (
+                      <div key={item.id} className="flex gap-4">
+                          <div className={`h-20 w-20 rounded-lg ${item.image} flex-shrink-0`}></div>
+                          <div className="flex-1 flex flex-col justify-between">
+                              <div>
+                                  <h4 className="font-bold text-sm text-gray-900 dark:text-white line-clamp-2">{item.name}</h4>
+                                  <p className="text-sm font-medium text-gray-500 dark:text-gray-400 mt-1">${item.price.toFixed(2)}</p>
+                              </div>
+                              <div className="flex items-center justify-between">
+                                  <div className="flex items-center gap-3 border border-gray-200 dark:border-gray-700 rounded-lg px-2 py-1">
+                                      <button 
+                                          onClick={() => updateQuantity(item.id, -1)}
+                                          className="text-gray-500 hover:text-gray-700 dark:hover:text-gray-200 disabled:opacity-30"
+                                          disabled={item.quantity <= 1}
+                                      >
+                                          <Minus className="h-3 w-3" />
+                                      </button>
+                                      <span className="text-xs font-bold w-4 text-center">{item.quantity}</span>
+                                      <button 
+                                          onClick={() => updateQuantity(item.id, 1)}
+                                          className="text-gray-500 hover:text-gray-700 dark:hover:text-gray-200"
+                                      >
+                                          <Plus className="h-3 w-3" />
+                                      </button>
+                                  </div>
+                                  <button 
+                                      onClick={() => removeItem(item.id)}
+                                      className="text-gray-400 hover:text-red-500 transition"
+                                  >
+                                      <Trash2 className="h-4 w-4" />
+                                  </button>
+                              </div>
+                          </div>
+                      </div>
+                  ))
+              )}
+          </div>
+
+          {/* Cart Footer */}
+          {cartItems.length > 0 && (
+              <div className="p-6 border-t border-gray-100 dark:border-gray-800 bg-gray-50 dark:bg-gray-800/50">
+                  <div className="flex justify-between items-center mb-4">
+                      <span className="text-gray-500 dark:text-gray-400 text-sm">Subtotal</span>
+                      <span className="text-xl font-bold text-gray-900 dark:text-white">${cartTotal.toFixed(2)}</span>
+                  </div>
+                  <button className="w-full py-3 bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-xl shadow-lg transition-transform active:scale-[0.98]">
+                      Checkout
+                  </button>
+              </div>
+          )}
+      </div>
+
     </div>
   );
 }

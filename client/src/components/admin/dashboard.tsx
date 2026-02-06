@@ -9,6 +9,7 @@ import FraudDetectionDashboard from "./FraudDetectionDashboard";
 import PayoutManagement from "./PayoutManagement";
 import WalletHub from "../page/WalletHub";
 import SalesManagementDashboard from "./SalesManagement";
+import CustomerCommunicationDashboard from "../page/Communication";
 
 export default function AdminDashboard() {
   // 1. GET isLoading FROM STORE
@@ -51,6 +52,7 @@ export default function AdminDashboard() {
         {activeTab === "payouts" && <PayoutManagement />}
         {activeTab === "wallet" && <WalletHub />}
         {activeTab === "sales" && <SalesManagementDashboard />}
+        {activeTab === "communication" && <CustomerCommunicationDashboard />}
         {/* {activeTab === "orders" && <div>Orders coming soon...</div>} */}
         {/* {activeTab === "users" && <div>Users coming soon...</div>} */}
       </main>

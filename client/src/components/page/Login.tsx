@@ -24,21 +24,30 @@ export default function Login() {
 
       // --- FIX STARTS HERE ---
       // 1. Check if user is Admin
-      if (profile.is_superuser || profile.role === 'admin') {
-         nav("/admin", { replace: true });
-      } 
-      // 2. Check if user is Seller (using else if)
-      else if (profile.is_approved || profile.role === "seller") {
-        nav("/seller/dashboard", { replace: true });
-      } 
-
-      else if (profile.role === "user") {
-        nav("/dashboard", { replace: true });
-      }
-      // 3. Default to Home
-      else {
-         nav("/", { replace: true });
-      }
+      // 1. Check if user is Admin
+        if (profile.is_superuser || profile.role === 'admin') {
+          nav("/admin", { replace: true });
+        } 
+        // 2. Check if user is Seller
+        // CHANGE: Ensure we strictly check the role "seller"
+        else if (profile.role === "seller") {
+            // Optional: You can check approval inside here if needed, 
+            // or keep it as just role-based routing
+            if (profile.is_approved) {
+                nav("/seller/dashboard", { replace: true });
+            } else {
+                // Handle unapproved seller (e.g., to a pending page or dashboard with limited access)
+                nav("/seller/pending", { replace: true }); 
+            }
+        } 
+        // 3. Check if user is User
+        else if (profile.role === "user") {
+          nav("/", { replace: true });
+        }
+        // 4. Default to Home
+        else {
+          nav("/", { replace: true });
+        }
       // --- FIX ENDS HERE ---
 
     } catch (err: any) {

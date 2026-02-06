@@ -51,5 +51,15 @@ export const SIDEBAR_ROUTES: SidebarRoute[] = [
     tab: "orders",
     roles: [ "seller"],
   },
+  {
+    label: "Communication",
+    tab: "communication",
+    roles: ["admin", "seller"],
+  },
+  {
+    label: "Reviews",
+    tab: "reviews",
+    roles: ["seller"],
+  }
   
 ];
