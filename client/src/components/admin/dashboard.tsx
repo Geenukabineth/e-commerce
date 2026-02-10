@@ -34,7 +34,7 @@ export default function AdminDashboard() {
   }
 
   return (
-    <div className="flex min-h-screen bg-gray-50">
+    <div className="ml-64 min-h-screen bg-gray-100 p-6">
       <Sidebar activeTab={activeTab} onTabChange={setActiveTab} />
 
       <main className="flex-1 p-8">

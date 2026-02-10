@@ -16,7 +16,7 @@ export default function Sidebar({ activeTab, onTabChange }: SidebarProps) {
   const { role } = auth;
 
   return (
-    <aside className="w-64 bg-gray-900 text-white flex flex-col min-h-screen">
+    <aside className="fixed left-0 top-20 h-full w-64 z-50 bg-gray-900 text-white flex flex-col min-h-screen">
       <div className="p-6">
         <h2 className="text-2xl font-bold tracking-wider uppercase">{role} Panel</h2>
         <p className="text-xs text-gray-400 mt-1">{role}</p>

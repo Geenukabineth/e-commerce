@@ -1,6 +1,6 @@
 # serializers.py
 from rest_framework import serializers
-from .models import Product
+from .models import Product,ModerationItem
 
 class ProductSerializer(serializers.ModelSerializer):
     seller_name = serializers.ReadOnlyField(source='seller.username')
@@ -14,3 +14,10 @@ class ProductSerializer(serializers.ModelSerializer):
             'status', 'internal_interest', 'external_interest', 
             'demand_score', 'seller_name', 'created_at', 'img','seller_id',"category"
         ]   
+
+
+
+class ModerationItemSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = ModerationItem
+        fields = '__all__'

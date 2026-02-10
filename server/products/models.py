@@ -24,3 +24,30 @@ class Product(models.Model):
 
     def __str__(self):
         return self.name + self.status
+
+class ModerationItem(models.Model):
+    RISK_CHOICES = [
+        ('High', 'High'),
+        ('Medium', 'Medium'),
+        ('Low', 'Low'),
+    ]
+    
+    CONTENT_TYPE_CHOICES = [
+        ('Product Review', 'Product Review'),
+        ('Product Description', 'Product Description'),
+        ('Seller Comment', 'Seller Comment'),
+    ]
+
+    content_type = models.CharField(max_length=50, choices=CONTENT_TYPE_CHOICES)
+    content = models.TextField()
+    reported_by = models.CharField(max_length=100, default="AI System")
+    
+    risk_level = models.CharField(max_length=10, choices=RISK_CHOICES, blank=True)
+    ml_confidence = models.IntegerField(default=0)
+    recommended_action = models.CharField(max_length=100, blank=True)
+    
+    created_at = models.DateTimeField(auto_now_add=True)
+    is_resolved = models.BooleanField(default=False)
+
+    def __str__(self):
+        return f"{self.content_type} - {self.risk_level} Risk"

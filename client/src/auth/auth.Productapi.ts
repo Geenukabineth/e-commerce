@@ -37,3 +37,23 @@ export async function deleteProductApi(productId: number): Promise<{message: str
     const res = await http.delete(`/v2/products/${productId}/`);
     return res.data;
 }
+
+export async function analyzeProductApi(productId: number): Promise<any> {
+    const res = await http.post(`/v2/admin/products/${productId}/analyze/`);
+    return res.data;
+}
+
+export async function getModerationQueueApi() {
+    const res = await http.get('/v2/moderation/');
+    return res.data;
+}
+
+export async function getModerationStatsApi() {
+    const res = await http.get('/v2/moderation/stats/');
+    return res.data;
+}
+
+export async function resolveModerationItemApi(id: number, action: 'approve' | 'remove') {
+    const res = await http.post(`/v2/moderation/${id}/resolve/`, { action });
+    return res.data;
+}

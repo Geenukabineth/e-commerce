@@ -3,6 +3,7 @@ import { Link, Outlet, useNavigate } from "react-router-dom";
 import { useAuth } from "./auth/auth.store";
 import { tokenStore } from "./service/http";
 import { getProfileApi } from "./auth/auth.api";
+import Chatbot from "./components/page/Chatbot";
 import { 
   Sun, 
   Moon, 
@@ -132,9 +133,9 @@ export default function App() {
   };
 
   return (
-    <div className="h-screen bg-gray-100 text-gray-900 transition-colors duration-300 dark:bg-gray-900 dark:text-gray-100 overflow-hidden flex flex-col">
+    <div className="h-screen bg-white text-gray-900 transition-colors duration-300 dark:bg-gray-900 dark:text-gray-100 overflow-hidden flex flex-col">
       
-      <header className="sticky top-0 z-40 border-b bg-white shadow-sm transition-colors duration-300 dark:bg-gray-800 dark:border-gray-700">
+      <header className="sticky top-0 ml-70 z-40 border-b bg-white shadow-sm transition-colors duration-300 dark:bg-gray-800 dark:border-gray-700">
         <div className="mx-auto flex max-w-7xl items-center justify-between px-6 py-4">
           
           <Link to="/" className="text-xl font-extrabold uppercase tracking-wide text-indigo-600 dark:text-indigo-400">
@@ -412,9 +413,13 @@ export default function App() {
         </div>
       </header>
       
-      <main className="mx-auto max-w-7xl p-6 flex-1 overflow-y-auto w-full">
-        <Outlet />
+      <main className="flex-1 overflow-y-auto w-full relative">
+        <div className="mx-auto max-w-7xl p-6">
+          <Outlet />
+        </div>
       </main>
+
+      <Chatbot />
 
       {/* --- SLIDE-OVER CART SIDEBAR --- */}
       {/* Backdrop */}
