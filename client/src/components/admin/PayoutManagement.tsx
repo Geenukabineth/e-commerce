@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { 
     Banknote, 
     ClockIcon, 
@@ -7,11 +7,15 @@ import {
     Wallet,
     ArrowDownLeft,
     RefreshCcw,
+    Loader2 
 } from "lucide-react";
+// Import the specific API functions based on your auth.payment.ts
+import { getAdminFinaceApi, resolveRefundApi } from "../../auth/auth.payment";
 
 // --- TYPES ---
+// Updated IDs to 'number' to match Django <int:pk> urls
 interface Payout {
-    id: string;
+    id: number;
     vendor_name: string;
     vendor_id: number;
     amount: number;
@@ -32,7 +36,7 @@ interface VendorTaxRecord {
 }
 
 interface Transaction {
-    id: string;
+    id: string; // Transactions often use UUIDs or string refs
     type: 'sale' | 'payout' | 'refund' | 'fee';
     amount: number;
     description: string;
@@ -41,8 +45,9 @@ interface Transaction {
     reference_id?: string; 
 }
 
+// Updated ID to 'number' to match Django <int:pk> urls
 interface RefundRequest {
-    id: string;
+    id: number;
     order_id: string;
     customer_name: string;
     seller_name: string;
@@ -54,51 +59,122 @@ interface RefundRequest {
     auto_resolve_date: string;
 }
 
+// Define the expected structure from the FinanceDashboardView API
+interface FinanceData {
+    balance?: {
+        platform_revenue: number;
+        pending_clearance: number;
+        vendor_holdings: number;
+    };
+    payouts?: Payout[];
+    transactions?: Transaction[];
+    refunds?: RefundRequest[];
+    taxRecords?: VendorTaxRecord[];
+}
+
 export default function PayoutManagement() {
     // --- STATE ---
     const [activeTab, setActiveTab] = useState<'wallet' | 'history' | 'refunds' | 'tax'>('wallet');
     const [automationEnabled, setAutomationEnabled] = useState(true);
+    const [isLoading, setIsLoading] = useState(true);
+    const [error, setError] = useState<string | null>(null);
+    const [actionLoading, setActionLoading] = useState<number | null>(null); // Track which item is processing
 
-    // --- MOCK DATA: PAYOUTS ---
-    const [payouts] = useState<Payout[]>([
-        { id: 'PO-0998', vendor_name: 'GamingPro', vendor_id: 103, amount: 8900.00, currency: 'USD', status: 'paid', method: 'stripe', created_at: '2026-01-31' },
-        { id: 'PO-0997', vendor_name: 'TechGadgets Inc', vendor_id: 101, amount: 2500.00, currency: 'USD', status: 'paid', method: 'bank_transfer', created_at: '2026-01-28' },
-    ]);
-
-    // --- MOCK DATA: WALLET & TRANSACTIONS ---
-    const [balance] = useState({
-        platform_revenue: 15420.00, 
-        pending_clearance: 3400.50, 
-        vendor_holdings: 125000.00, 
+    // --- DATA STATE (Initialized with safe defaults) ---
+    const [balance, setBalance] = useState({
+        platform_revenue: 0, 
+        pending_clearance: 0, 
+        vendor_holdings: 0, 
     });
+    const [payouts, setPayouts] = useState<Payout[]>([]);
+    const [transactions, setTransactions] = useState<Transaction[]>([]);
+    const [refunds, setRefunds] = useState<RefundRequest[]>([]);
+    const [taxRecords, setTaxRecords] = useState<VendorTaxRecord[]>([]);
 
-    const [transactions] = useState<Transaction[]>([
-        { id: 'TXN-8821', type: 'fee', amount: 12.00, description: 'Platform Fee: Order #101', date: '2026-02-05', status: 'completed' },
-        { id: 'TXN-8820', type: 'sale', amount: 120.00, description: 'Payment In: Order #101', date: '2026-02-05', status: 'completed' },
-        { id: 'TXN-8819', type: 'payout', amount: -500.00, description: 'Payout to TechGadgets Inc', date: '2026-02-01', status: 'completed' },
-        { id: 'TXN-8818', type: 'refund', amount: -60.00, description: 'Refund: Order #055', date: '2026-01-28', status: 'completed' },
-    ]);
+    // --- FETCH DATA ---
+    useEffect(() => {
+        const fetchData = async () => {
+            setIsLoading(true);
+            try {
+                // Calls the endpoint mapped to FinanceDashboardView
+                const data: FinanceData = await getAdminFinaceApi();
+                
+                // Safety checks: Fallback to defaults if specific keys are missing
+                setBalance(data?.balance || { 
+                    platform_revenue: 0, 
+                    pending_clearance: 0, 
+                    vendor_holdings: 0 
+                });
 
-    // --- MOCK DATA: REFUNDS ---
-    const [refunds, setRefunds] = useState<RefundRequest[]>([
-        { id: 'RF-202', order_id: 'ORD-115', customer_name: 'John Doe', seller_name: 'TechGadgets Inc', product_name: 'Mechanical Keyboard', amount: 85.00, reason: 'Item defective', date_requested: '2026-02-04', status: 'pending', auto_resolve_date: '2026-02-07' },
-        { id: 'RF-201', order_id: 'ORD-110', customer_name: 'Sarah Lee', seller_name: 'Alice Smith', product_name: 'USB Cable', amount: 15.00, reason: 'Wrong item', date_requested: '2026-02-03', status: 'escalated', auto_resolve_date: '2026-02-06' }
-    ]);
+                setPayouts(data?.payouts || []);
+                setTransactions(data?.transactions || []);
+                setRefunds(data?.refunds || []);
+                setTaxRecords(data?.taxRecords || []);
 
-    const [taxRecords] = useState<VendorTaxRecord[]>([
-        { vendor_id: 101, vendor_name: 'TechGadgets Inc', tax_id: '**-***4589', total_earnings_ytd: 6600.00, last_invoice_date: '2026-01-31', w9_status: 'submitted' },
-        { vendor_id: 102, vendor_name: 'Alice Smith', tax_id: '**-***9921', total_earnings_ytd: 120.50, last_invoice_date: '2026-02-01', w9_status: 'missing' },
-    ]);
+            } catch (err) {
+                console.error("Failed to fetch finance data:", err);
+                setError("Failed to load financial data. Please try again.");
+            } finally {
+                setIsLoading(false);
+            }
+        };
+
+        fetchData();
+    }, []);
 
     // --- ACTIONS ---
-    const handleRefundAction = (id: string, action: 'approve' | 'reject') => {
-        if(!window.confirm(`Confirm ${action} for this refund?`)) return;
-        setRefunds(prev => prev.map(r => r.id === id ? { ...r, status: action === 'approve' ? 'approved' : 'rejected' } : r));
+    const handleRefundAction = async (id: number, action: 'approve' | 'reject') => {
+        const confirmMsg = action === 'approve' 
+            ? "Are you sure you want to FORCE REFUND this order? The funds will be deducted from the seller." 
+            : "Are you sure you want to DENY this refund request?";
+
+        if(!window.confirm(confirmMsg)) return;
+
+        setActionLoading(id);
+        try {
+            // Calls the API mapped to RefundActionView
+            await resolveRefundApi(id, action);
+            
+            // Optimistic update: Update local state to reflect change immediately
+            setRefunds(prev => prev.map(r => 
+                r.id === id ? { ...r, status: action === 'approve' ? 'approved' : 'rejected' } : r
+            ));
+        } catch (err) {
+            console.error("Refund action failed", err);
+            alert("Failed to process refund action. Please try again.");
+        } finally {
+            setActionLoading(null);
+        }
     };
 
     const handleGenerateInvoice = (vendorName: string) => {
+        // Placeholder for invoice generation logic
         alert(`Generating Invoice for ${vendorName}...`);
     };
+
+    if (isLoading) {
+        return (
+            <div className="flex items-center justify-center min-h-screen bg-gray-50">
+                <Loader2 className="h-12 w-12 text-green-600 animate-spin" />
+            </div>
+        );
+    }
+
+    if (error) {
+        return (
+            <div className="flex items-center justify-center min-h-screen bg-gray-50">
+                <div className="text-center">
+                    <p className="text-red-600 font-bold mb-2">{error}</p>
+                    <button 
+                        onClick={() => window.location.reload()} 
+                        className="px-4 py-2 bg-indigo-600 text-white rounded hover:bg-indigo-700"
+                    >
+                        Retry
+                    </button>
+                </div>
+            </div>
+        );
+    }
 
     return (
         <div className="p-8 max-w-7xl mx-auto bg-gray-50 min-h-screen font-sans">
@@ -116,17 +192,23 @@ export default function PayoutManagement() {
                      <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mt-6">
                         <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-200">
                             <p className="text-xs font-bold text-gray-400 uppercase">Platform Revenue (Fees)</p>
-                            <p className="text-3xl font-extrabold text-green-700 mt-2">${balance.platform_revenue.toLocaleString()}</p>
+                            <p className="text-3xl font-extrabold text-green-700 mt-2">
+                                ${balance?.platform_revenue?.toLocaleString() ?? '0.00'}
+                            </p>
                             <p className="text-xs text-gray-400 mt-1">Available for business withdrawal</p>
                         </div>
                         <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-200">
                             <p className="text-xs font-bold text-gray-400 uppercase">Vendor Holdings</p>
-                            <p className="text-3xl font-extrabold text-gray-900 mt-2">${balance.vendor_holdings.toLocaleString()}</p>
+                            <p className="text-3xl font-extrabold text-gray-900 mt-2">
+                                ${balance?.vendor_holdings?.toLocaleString() ?? '0.00'}
+                            </p>
                             <p className="text-xs text-gray-400 mt-1">Funds held on behalf of sellers</p>
                         </div>
                         <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-200">
                             <p className="text-xs font-bold text-gray-400 uppercase">Pending Clearance</p>
-                            <p className="text-3xl font-extrabold text-gray-900 mt-2">${balance.pending_clearance.toLocaleString()}</p>
+                            <p className="text-3xl font-extrabold text-gray-900 mt-2">
+                                ${balance?.pending_clearance?.toLocaleString() ?? '0.00'}
+                            </p>
                             <p className="text-xs text-gray-400 mt-1">Processing transactions</p>
                         </div>
                     </div>
@@ -168,9 +250,9 @@ export default function PayoutManagement() {
                         className={`px-6 py-4 text-sm font-bold border-b-2 transition-colors flex items-center gap-2 whitespace-nowrap ${activeTab === 'refunds' ? 'border-green-600 text-green-600 bg-green-50/30' : 'border-transparent text-gray-500 hover:bg-gray-50'}`}
                     >
                         <RefreshCcw className="h-4 w-4" /> Refund Disputes
-                        {refunds.filter(r => r.status === 'escalated' || r.status === 'pending').length > 0 && 
+                        {(refunds || []).filter(r => r.status === 'escalated' || r.status === 'pending').length > 0 && 
                             <span className="bg-red-100 text-red-600 text-[10px] px-2 py-0.5 rounded-full ml-1">
-                                {refunds.filter(r => r.status === 'escalated' || r.status === 'pending').length}
+                                {(refunds || []).filter(r => r.status === 'escalated' || r.status === 'pending').length}
                             </span>
                         }
                     </button>
@@ -204,7 +286,7 @@ export default function PayoutManagement() {
                                         </tr>
                                     </thead>
                                     <tbody className="divide-y divide-gray-100">
-                                        {transactions.map((txn) => (
+                                        {(transactions || []).map((txn) => (
                                             <tr key={txn.id} className="hover:bg-gray-50">
                                                 <td className="px-6 py-4">
                                                     <p className="text-sm font-bold text-gray-900">{txn.description}</p>
@@ -225,6 +307,13 @@ export default function PayoutManagement() {
                                                 </td>
                                             </tr>
                                         ))}
+                                        {(transactions || []).length === 0 && (
+                                            <tr>
+                                                <td colSpan={4} className="px-6 py-8 text-center text-gray-500 text-sm">
+                                                    No recent transactions found.
+                                                </td>
+                                            </tr>
+                                        )}
                                     </tbody>
                                 </table>
                             </div>
@@ -234,7 +323,7 @@ export default function PayoutManagement() {
                     {/* 2. REFUNDS TAB */}
                     {activeTab === 'refunds' && (
                         <div className="p-6 space-y-4">
-                            {refunds.map(refund => (
+                            {(refunds || []).map(refund => (
                                 <div key={refund.id} className="bg-white border border-gray-200 rounded-xl p-6 flex flex-col md:flex-row gap-6 hover:shadow-sm transition">
                                     {/* Refund Info */}
                                     <div className="flex-1">
@@ -271,16 +360,22 @@ export default function PayoutManagement() {
                                         {refund.status === 'pending' || refund.status === 'escalated' ? (
                                             <div className="flex gap-2 w-full mt-4">
                                                 <button 
+                                                    disabled={actionLoading === refund.id}
                                                     onClick={() => handleRefundAction(refund.id, 'reject')}
-                                                    className="flex-1 py-2 border border-gray-300 text-gray-600 rounded-lg text-xs font-bold hover:bg-gray-50"
+                                                    className="flex-1 py-2 border border-gray-300 text-gray-600 rounded-lg text-xs font-bold hover:bg-gray-50 disabled:opacity-50"
                                                 >
                                                     Deny
                                                 </button>
                                                 <button 
+                                                    disabled={actionLoading === refund.id}
                                                     onClick={() => handleRefundAction(refund.id, 'approve')}
-                                                    className="flex-1 py-2 bg-green-600 text-white rounded-lg text-xs font-bold hover:bg-green-700 shadow-sm"
+                                                    className="flex-1 py-2 bg-green-600 text-white rounded-lg text-xs font-bold hover:bg-green-700 shadow-sm disabled:opacity-50 flex justify-center gap-2"
                                                 >
-                                                    Force Refund
+                                                    {actionLoading === refund.id ? (
+                                                        <Loader2 className="h-4 w-4 animate-spin" />
+                                                    ) : (
+                                                        "Force Refund"
+                                                    )}
                                                 </button>
                                             </div>
                                         ) : (
@@ -294,6 +389,9 @@ export default function PayoutManagement() {
                                     </div>
                                 </div>
                             ))}
+                            {(refunds || []).length === 0 && (
+                                <div className="text-center py-10 text-gray-500">No refund disputes found.</div>
+                            )}
                         </div>
                     )}
 
@@ -311,9 +409,9 @@ export default function PayoutManagement() {
                                     </tr>
                                 </thead>
                                 <tbody className="divide-y divide-gray-200">
-                                    {payouts.map(p => (
+                                    {(payouts || []).map(p => (
                                         <tr key={p.id} className="hover:bg-gray-50">
-                                            <td className="px-6 py-4 text-xs font-mono text-gray-500">{p.id}</td>
+                                            <td className="px-6 py-4 text-xs font-mono text-gray-500">PO-{p.id}</td>
                                             <td className="px-6 py-4 text-sm text-gray-900">{p.created_at}</td>
                                             <td className="px-6 py-4 text-sm font-bold text-gray-900">{p.vendor_name}</td>
                                             <td className="px-6 py-4">
@@ -328,6 +426,13 @@ export default function PayoutManagement() {
                                             <td className="px-6 py-4 text-right font-bold text-gray-900">${p.amount.toFixed(2)}</td>
                                         </tr>
                                     ))}
+                                    {(payouts || []).length === 0 && (
+                                        <tr>
+                                            <td colSpan={5} className="px-6 py-8 text-center text-gray-500 text-sm">
+                                                No payout history available.
+                                            </td>
+                                        </tr>
+                                    )}
                                 </tbody>
                             </table>
                         </div>
@@ -336,7 +441,7 @@ export default function PayoutManagement() {
                     {/* 4. TAX TAB */}
                     {activeTab === 'tax' && (
                         <div className="p-6 grid grid-cols-1 gap-4">
-                            {taxRecords.map(vendor => (
+                            {(taxRecords || []).map(vendor => (
                                 <div key={vendor.vendor_id} className="border border-gray-200 rounded-lg p-4 hover:shadow-md transition bg-white flex flex-col md:flex-row justify-between items-center gap-4">
                                     <div className="flex-1">
                                         <div className="flex items-center gap-2">
@@ -362,6 +467,9 @@ export default function PayoutManagement() {
                                     </div>
                                 </div>
                             ))}
+                            {(taxRecords || []).length === 0 && (
+                                <div className="text-center py-10 text-gray-500">No tax records found.</div>
+                            )}
                         </div>
                     )}
 
