@@ -3,12 +3,14 @@ from rest_framework.response import Response
 from rest_framework import status, permissions
 from django.db.models import Sum, Q
 from django.shortcuts import get_object_or_404
-from .models import Wallet, Payout, RefundRequest, TaxProfile, Transaction
+from .models import Wallet, Payout, RefundRequest, TaxProfile, Subscription,PaymentMethod
 from .serializers import (
     WalletDashboardSerializer, 
     PayoutSerializer, 
     RefundRequestSerializer,
-    TaxProfileSerializer
+    TaxProfileSerializer,
+    PaymentMethodSerializer,
+    SubscriptionSerializer,
 )
 
 # --- WALLET HUB ---
@@ -139,11 +141,42 @@ class RefundActionView(APIView):
         return Response({'error': 'Invalid action'}, status=status.HTTP_400_BAD_REQUEST)
 
 
-# --- FINANCE DASHBOARD (ADMIN) ---
+# views.py
+from .models import PlatformSettings  # <--- Import the new model
+from .serializers import AutoPayoutToggleSerializer # <--- Import new serializer
 
+# ... existing views ...
+
+# --- NEW VIEW FOR THE TOGGLE ---
+class AutoPayoutsView(APIView):
+    """
+    Toggles the system-wide Auto-Payouts setting.
+    """
+    permission_classes = [permissions.IsAdminUser]
+
+    def post(self, request):
+        serializer = AutoPayoutToggleSerializer(data=request.data)
+        if serializer.is_valid():
+            enabled = serializer.validated_data['enabled']
+            
+            # Update or Create the setting
+            setting, created = PlatformSettings.objects.update_or_create(
+                key='auto_payouts',
+                defaults={'is_enabled': enabled}
+            )
+            
+            return Response({
+                'status': 'success', 
+                'automation_enabled': setting.is_enabled
+            }, status=status.HTTP_200_OK)
+            
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+
+# --- UPDATED FINANCE DASHBOARD VIEW ---
 class FinanceDashboardView(APIView):
     """
-    Aggregates data for the Admin Finance Overview (Header Stats & Tax Tabs).
+    Aggregates data for the Admin Finance Overview.
     """
     permission_classes = [permissions.IsAdminUser]
 
@@ -153,7 +186,15 @@ class FinanceDashboardView(APIView):
         vendor_holdings = Wallet.objects.aggregate(sum=Sum('vendor_holdings'))['sum'] or 0
         pending_clearance = Wallet.objects.aggregate(sum=Sum('pending_clearance'))['sum'] or 0
 
-        # 2. Get Tax Profiles
+        # 2. Get Real Automation Status (New Logic)
+        try:
+            # Fetch from DB, default to True if not set
+            setting = PlatformSettings.objects.get(key='auto_payouts')
+            is_auto_enabled = setting.is_enabled
+        except PlatformSettings.DoesNotExist:
+            is_auto_enabled = True
+
+        # 3. Get Tax Profiles
         tax_profiles = TaxProfile.objects.all()
         tax_serializer = TaxProfileSerializer(tax_profiles, many=True)
 
@@ -162,8 +203,65 @@ class FinanceDashboardView(APIView):
                 'platform_revenue': total_revenue,
                 'vendor_holdings': vendor_holdings,
                 'pending_clearance': pending_clearance,
-                'automation_enabled': True 
+                'automation_enabled': is_auto_enabled # <--- Now dynamic
             },
             'tax_records': tax_serializer.data
         }
         return Response(data, status=status.HTTP_200_OK)
+    
+
+class PaymentMethodView(APIView):
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get(self, request):
+        cards = PaymentMethod.objects.filter(user=request.user).order_by('-is_default')
+        serializer = PaymentMethodSerializer(cards, many=True)
+        return Response(serializer.data)
+
+    def post(self, request):
+        serializer = PaymentMethodSerializer(data=request.data)
+        if serializer.is_valid():
+            serializer.save(user=request.user)
+            return Response(serializer.data, status=status.HTTP_201_CREATED)
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+    def delete(self, request, pk):
+        card = get_object_or_404(PaymentMethod, pk=pk, user=request.user)
+        card.delete()
+        return Response(status=status.HTTP_204_NO_CONTENT)
+
+    def put(self, request, pk):
+        # Used for "Make Default" or Edit
+        card = get_object_or_404(PaymentMethod, pk=pk, user=request.user)
+        serializer = PaymentMethodSerializer(card, data=request.data, partial=True)
+        if serializer.is_valid():
+            serializer.save()
+            return Response(serializer.data)
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+
+# --- SUBSCRIPTIONS ---
+
+class SubscriptionListView(APIView):
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get(self, request):
+        subs = Subscription.objects.filter(user=request.user)
+        serializer = SubscriptionSerializer(subs, many=True)
+        return Response(serializer.data)
+
+    def post(self, request, pk):
+        sub = get_object_or_404(Subscription, pk=pk, user=request.user)
+        action = request.data.get('action') # pause, resume, cancel
+
+        if action == 'pause':
+            sub.status = 'paused'
+        elif action == 'resume':
+            sub.status = 'active'
+        elif action == 'cancel':
+            sub.status = 'cancelled'
+        else:
+            return Response({'error': 'Invalid action'}, status=status.HTTP_400_BAD_REQUEST)
+        
+        sub.save()
+        return Response({'status': sub.status, 'id': sub.id})

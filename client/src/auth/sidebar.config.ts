@@ -44,7 +44,12 @@ export const SIDEBAR_ROUTES: SidebarRoute[] = [
   {
     label: "Sales", 
     tab: "sales",
-    roles: ["admin", "seller"],
+    roles: ["admin"],
+  },
+  {
+    label : "Marketing ",
+    tab: "marketing",
+    roles: ["seller"]
   },
   {
     label: "Orders",

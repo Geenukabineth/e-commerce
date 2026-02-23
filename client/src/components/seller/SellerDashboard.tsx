@@ -4,9 +4,8 @@ import type { Profile } from "../../auth/auth.types";
 import Sidebar from "../page/Sidebar";
 import Inventory from "./Inventory";
 import Overview from "./sellerOverview"; 
-import SalesManagementDashboard from "../admin/SalesManagement";
+import SalesInstergram from "../seller/sellerInstergram";
 import SellerOrderDashboard from "./Order";
-import type CustomerCommunicationDashboard from "../page/Communication";
 import Communication from "../page/Communication";
 import ReviewManagementDashboard from "./Review";
 
@@ -35,7 +34,7 @@ export default function SellerDashboard() {
     <div className="flex min-h-screen bg-gray-50">
       <Sidebar activeTab={activeTab} onTabChange={setActiveTab} />
 
-      <main className="flex-1 p-10">
+      <main className="flex-1  ml-64">
         <div className="mx-auto max-w-7xl">
           
           {/* Dashboard Tab: Show the separated Overview page */}
@@ -50,7 +49,7 @@ export default function SellerDashboard() {
 
           {/* Orders Tab: Placeholder */}
           {activeTab === "orders" && <SellerOrderDashboard/>}
-          {activeTab === "sales" && <SalesManagementDashboard />}
+          {activeTab === "marketing" && <SalesInstergram />}
           {activeTab === "communication" && <Communication />}
           {activeTab === "reviews" && <ReviewManagementDashboard />}
 

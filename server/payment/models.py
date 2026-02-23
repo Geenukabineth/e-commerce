@@ -110,3 +110,46 @@ class RefundRequest(models.Model):
     date_requested = models.DateField(auto_now_add=True)
     status = models.CharField(max_length=20, choices=REFUND_STATUS, default='pending')
     auto_resolve_date = models.DateField(null=True, blank=True)
+
+
+class PlatformSettings(models.Model):
+    """
+    Stores global system configurations.
+    """
+    key = models.CharField(max_length=50, unique=True) # e.g., 'auto_payouts'
+    is_enabled = models.BooleanField(default=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    def __str__(self):
+        return f"{self.key}: {self.is_enabled}"
+    
+class PaymentMethod(models.Model):
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, related_name='payment_methods', on_delete=models.CASCADE)
+    type = models.CharField(max_length=20, choices=[('visa', 'Visa'), ('mastercard', 'Mastercard'), ('amex', 'Amex')])
+    last4 = models.CharField(max_length=4)
+    expiry = models.CharField(max_length=7) # MM/YYYY
+    holder_name = models.CharField(max_length=100)
+    is_default = models.BooleanField(default=False)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    def save(self, *args, **kwargs):
+        # If this is set to default, unset others
+        if self.is_default:
+            PaymentMethod.objects.filter(user=self.user, is_default=True).update(is_default=False)
+        super().save(*args, **kwargs)
+
+class Subscription(models.Model):
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, related_name='subscriptions', on_delete=models.CASCADE)
+    vendor_name = models.CharField(max_length=100)
+    product_name = models.CharField(max_length=100)
+    product_image = models.CharField(max_length=100, default="bg-gray-100 text-gray-600") # CSS classes for demo
+    amount = models.DecimalField(max_digits=10, decimal_places=2)
+    frequency = models.CharField(max_length=20, choices=[('Weekly', 'Weekly'), ('Monthly', 'Monthly'), ('Quarterly', 'Quarterly')])
+    next_billing_date = models.DateField()
+    status = models.CharField(max_length=20, choices=[
+        ('active', 'Active'), 
+        ('paused', 'Paused'), 
+        ('cancelled', 'Cancelled'), 
+        ('payment_failed', 'Payment Failed')
+    ], default='active')
+    payment_method = models.ForeignKey(PaymentMethod, on_delete=models.SET_NULL, null=True, blank=True)

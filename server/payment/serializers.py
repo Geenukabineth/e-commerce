@@ -1,5 +1,5 @@
 from rest_framework import serializers
-from .models import Wallet, Transaction, CoinHistory, Payout, RefundRequest, TaxProfile
+from .models import Wallet, Transaction, CoinHistory, Payout, RefundRequest, TaxProfile,PaymentMethod,Subscription
 
 class TransactionSerializer(serializers.ModelSerializer):
     class Meta:
@@ -43,3 +43,25 @@ class RefundRequestSerializer(serializers.ModelSerializer):
     class Meta:
         model = RefundRequest
         fields = '__all__'
+
+
+class AutoPayoutToggleSerializer(serializers.Serializer):
+    enabled = serializers.BooleanField()
+
+
+class PaymentMethodSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = PaymentMethod
+        fields = ['id', 'type', 'last4', 'expiry', 'holder_name', 'is_default']
+
+class SubscriptionSerializer(serializers.ModelSerializer):
+    payment_method_id = serializers.PrimaryKeyRelatedField(
+        source='payment_method', 
+        queryset=PaymentMethod.objects.all(),
+        required=False, 
+        allow_null=True
+    )
+
+    class Meta:
+        model = Subscription
+        fields = ['id', 'vendor_name', 'product_name', 'product_image', 'amount', 'frequency', 'next_billing_date', 'status', 'payment_method_id']

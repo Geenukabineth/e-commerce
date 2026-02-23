@@ -10,10 +10,9 @@ import {
     Loader2 
 } from "lucide-react";
 // Import the specific API functions based on your auth.payment.ts
-import { getAdminFinaceApi, resolveRefundApi } from "../../auth/auth.payment";
+import { getAdminFinaceApi, resolveRefundApi, toggleAutoPayoutsApi } from "../../auth/auth.payment";
 
 // --- TYPES ---
-// Updated IDs to 'number' to match Django <int:pk> urls
 interface Payout {
     id: number;
     vendor_name: string;
@@ -36,7 +35,7 @@ interface VendorTaxRecord {
 }
 
 interface Transaction {
-    id: string; // Transactions often use UUIDs or string refs
+    id: string; 
     type: 'sale' | 'payout' | 'refund' | 'fee';
     amount: number;
     description: string;
@@ -45,7 +44,6 @@ interface Transaction {
     reference_id?: string; 
 }
 
-// Updated ID to 'number' to match Django <int:pk> urls
 interface RefundRequest {
     id: number;
     order_id: string;
@@ -61,6 +59,7 @@ interface RefundRequest {
 
 // Define the expected structure from the FinanceDashboardView API
 interface FinanceData {
+    automation_enabled?: boolean; // <--- ADDED: Matches backend response
     balance?: {
         platform_revenue: number;
         pending_clearance: number;
@@ -99,13 +98,17 @@ export default function PayoutManagement() {
                 // Calls the endpoint mapped to FinanceDashboardView
                 const data: FinanceData = await getAdminFinaceApi();
                 
-                // Safety checks: Fallback to defaults if specific keys are missing
+                // 1. Set Automation State from Backend (Default to false if missing)
+                setAutomationEnabled(data?.automation_enabled ?? false);
+
+                // 2. Set Balance Data
                 setBalance(data?.balance || { 
                     platform_revenue: 0, 
                     pending_clearance: 0, 
                     vendor_holdings: 0 
                 });
 
+                // 3. Set Lists
                 setPayouts(data?.payouts || []);
                 setTransactions(data?.transactions || []);
                 setRefunds(data?.refunds || []);
@@ -123,6 +126,24 @@ export default function PayoutManagement() {
     }, []);
 
     // --- ACTIONS ---
+    
+    // NEW: Handle Auto-Payout Toggle
+    const handleToggleAutomation = async () => {
+        const newState = !automationEnabled;
+        
+        // Optimistic UI Update
+        setAutomationEnabled(newState);
+
+        try {
+            await toggleAutoPayoutsApi(newState);
+        } catch (err) {
+            console.error("Failed to update auto-payout settings", err);
+            // Revert state on error
+            setAutomationEnabled(!newState);
+            alert("Failed to save setting. Please check your connection.");
+        }
+    };
+
     const handleRefundAction = async (id: number, action: 'approve' | 'reject') => {
         const confirmMsg = action === 'approve' 
             ? "Are you sure you want to FORCE REFUND this order? The funds will be deducted from the seller." 
@@ -214,6 +235,7 @@ export default function PayoutManagement() {
                     </div>
                 </div>
                 
+                {/* AUTO-PAYOUT TOGGLE */}
                 <div className={`flex items-center gap-3 px-4 py-2 rounded-xl border ${automationEnabled ? 'bg-green-50 border-green-200' : 'bg-yellow-50 border-yellow-200'}`}>
                     <div className="flex flex-col">
                         <span className="text-xs font-bold uppercase tracking-wider text-gray-500">Auto-Payouts</span>
@@ -222,7 +244,7 @@ export default function PayoutManagement() {
                         </span>
                     </div>
                     <button 
-                        onClick={() => setAutomationEnabled(!automationEnabled)}
+                        onClick={handleToggleAutomation}
                         className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none ${automationEnabled ? 'bg-green-600' : 'bg-gray-300'}`}
                     >
                         <span className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${automationEnabled ? 'translate-x-6' : 'translate-x-1'}`} />
