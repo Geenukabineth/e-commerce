@@ -308,6 +308,18 @@ export default function App() {
                           Admin Dashboard
                         </Link>
                       )}
+                      {profile?.role === 'seller' && (
+                          <Link
+                          to="/seller/dashboard"
+                          className="flex items-center gap-2 px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 dark:text-gray-200 dark:hover:bg-gray-700"
+                          onClick={() => setIsUserMenuOpen(false)}
+                        >
+                          <ShieldCheck className="h-4 w-4 text-indigo-500" />
+                          Seller Dashboard
+                        </Link>
+                      )}
+                      
+
 
                       {/* --- USER SPECIFIC LINKS --- */}
                       {profile?.role === 'user' && (
@@ -414,7 +426,7 @@ export default function App() {
       </header>
       
       <main className="flex-1 overflow-y-auto w-full relative">
-        <div className="mx-auto max-w-7xl p-6">
+        <div className="">
           <Outlet />
         </div>
       </main>

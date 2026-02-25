@@ -1,5 +1,6 @@
 from django.urls import path
 from .views import (
+    OrdersView,
     WalletHubView, 
     PayoutListView, 
     PayoutActionView, 
@@ -9,6 +10,7 @@ from .views import (
     AutoPayoutsView,
     PaymentMethodView,
     SubscriptionListView,
+    ProductPromotionView,
 
 
 )
@@ -35,5 +37,10 @@ urlpatterns = [
     # Subscriptions
     path('billing/subscriptions/', SubscriptionListView.as_view(), name='subs-list'),
     path('billing/subscriptions/<int:pk>/action/', SubscriptionListView.as_view(), name='subs-action'),
+
+    path('promotions/', ProductPromotionView.as_view(), name='promotions-list'),
+    path('promotions/<int:pk>/', ProductPromotionView.as_view(), name='promotions-detail'),
+    path('orders/', OrdersView.as_view(), name='orders-list'),
+    path('orders/<int:pk>/', OrdersView.as_view(), name='orders-detail'),
 
 ]

@@ -1,8 +1,7 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { 
     Star, 
     MessageSquare, 
-    Filter, 
     Search, 
     ThumbsUp, 
     MoreHorizontal, 
@@ -10,14 +9,21 @@ import {
     AlertCircle, 
     CornerUpLeft, 
     Sparkles, 
-    Copy,
     Reply,
-    Bot
+    Bot,
+    Loader2
 } from "lucide-react";
+
+import { 
+    getProductReviewsApi, 
+    replyToReviewApi, 
+    getStoreSettingsApi, 
+    toggleAutoReplyApi 
+} from "../../auth/auth.Productapi";
 
 // --- TYPES ---
 interface Review {
-    id: string;
+    id: string | number; // FIX: Allowed number since Django IDs are integers
     customer: {
         name: string;
         avatar_color: string;
@@ -33,66 +39,44 @@ interface Review {
     sentiment: 'positive' | 'neutral' | 'negative';
     status: 'pending' | 'replied' | 'flagged';
     likes: number;
-    seller_reply?: string;
+    seller_reply?: string | null;
 }
+
+type FilterStatus = 'all' | 'pending' | 'replied';
 
 export default function ReviewManagementDashboard() {
     // --- STATE ---
-    const [activeFilter, setActiveFilter] = useState<'all' | 'pending' | 'replied'>('all');
+    const [reviews, setReviews] = useState<Review[]>([]);
+    const [isLoading, setIsLoading] = useState(true);
+    const [activeFilter, setActiveFilter] = useState<FilterStatus>('all');
     const [ratingFilter, setRatingFilter] = useState<number | 'all'>('all');
-    const [replyingTo, setReplyingTo] = useState<string | null>(null);
+    
+    // FIX: Allow number for replyingTo state
+    const [replyingTo, setReplyingTo] = useState<string | number | null>(null);
     const [replyText, setReplyText] = useState("");
-    const [autoReplyEnabled, setAutoReplyEnabled] = useState(false); // State for On/Off Toggle
+    const [autoReplyEnabled, setAutoReplyEnabled] = useState(false);
 
-    // --- MOCK DATA ---
-    const [reviews, setReviews] = useState<Review[]>([
-        {
-            id: 'REV-101',
-            customer: { name: "Alice Freeman", avatar_color: "bg-purple-100 text-purple-600", verified: true },
-            product: { name: "Wireless Pro Headphones", image_url: "/api/placeholder/40/40" },
-            rating: 5,
-            date: "2 hours ago",
-            content: "These are hands down the best headphones I've ever owned. The noise cancellation is top tier!",
-            sentiment: 'positive',
-            status: 'pending',
-            likes: 12
-        },
-        {
-            id: 'REV-102',
-            customer: { name: "Mark Wilson", avatar_color: "bg-blue-100 text-blue-600", verified: true },
-            product: { name: "Ergo Mech Keyboard", image_url: "/api/placeholder/40/40" },
-            rating: 2,
-            date: "1 day ago",
-            content: "The switches feel scratchy and the keycaps are loose. Expected better quality for the price.",
-            sentiment: 'negative',
-            status: 'pending',
-            likes: 4
-        },
-        {
-            id: 'REV-103',
-            customer: { name: "Sarah Connor", avatar_color: "bg-green-100 text-green-600", verified: true },
-            product: { name: "USB-C Hub", image_url: "/api/placeholder/40/40" },
-            rating: 4,
-            date: "3 days ago",
-            content: "Works as advertised, but the cable is a bit short for my laptop stand setup.",
-            sentiment: 'neutral',
-            status: 'replied',
-            likes: 1,
-            seller_reply: "Thanks for the feedback Sarah! We're noting the cable length for our V2 design."
-        },
-        {
-            id: 'REV-104',
-            customer: { name: "John Doe", avatar_color: "bg-gray-100 text-gray-600", verified: false },
-            product: { name: "Gaming Mouse", image_url: "/api/placeholder/40/40" },
-            rating: 5,
-            date: "1 week ago",
-            content: "Fast shipping and great packaging. Product works perfectly.",
-            sentiment: 'positive',
-            status: 'replied',
-            likes: 0,
-            seller_reply: "Glad to hear it arrived safely, John! Game on! 🎮"
-        }
-    ]);
+    // --- FETCH INITIAL DATA ---
+    useEffect(() => {
+        const fetchDashboardData = async () => {
+            try {
+                setIsLoading(true);
+                const [reviewsData, settingsData] = await Promise.all([
+                    getProductReviewsApi(),
+                    getStoreSettingsApi()
+                ]);
+                
+                setReviews(Array.isArray(reviewsData) ? reviewsData : []);
+                setAutoReplyEnabled(settingsData?.autoReplyEnabled || false);
+            } catch (error) {
+                console.error("Failed to load dashboard data:", error);
+            } finally {
+                setIsLoading(false);
+            }
+        };
+
+        fetchDashboardData();
+    }, []);
 
     // --- TEMPLATES ---
     const responseTemplates = [
@@ -102,17 +86,36 @@ export default function ReviewManagementDashboard() {
     ];
 
     // --- ACTIONS ---
-    const handlePostReply = (reviewId: string) => {
+    // FIX: Allow reviewId to be string or number
+    const handlePostReply = async (reviewId: string | number) => {
         if (!replyText.trim()) return;
         
-        setReviews(prev => prev.map(r => r.id === reviewId ? { 
-            ...r, 
-            status: 'replied', 
-            seller_reply: replyText 
-        } : r));
-        
-        setReplyingTo(null);
-        setReplyText("");
+        try {
+            const updatedReview = await replyToReviewApi(Number(reviewId), replyText);
+            
+            setReviews(prev => prev.map(r => r.id === reviewId ? { 
+                ...r, 
+                status: 'replied', 
+                seller_reply: updatedReview?.seller_reply || replyText 
+            } : r));
+            
+            setReplyingTo(null);
+            setReplyText("");
+        } catch (error) {
+            console.error("Failed to post reply:", error);
+            alert("Could not post reply. Please try again.");
+        }
+    };
+
+    const handleToggleAutoReply = async () => {
+        const newToggleState = !autoReplyEnabled;
+        try {
+            setAutoReplyEnabled(newToggleState);
+            await toggleAutoReplyApi(newToggleState);
+        } catch (error) {
+            console.error("Failed to toggle auto reply:", error);
+            setAutoReplyEnabled(!newToggleState);
+        }
     };
 
     const handleUseTemplate = (text: string) => {
@@ -126,7 +129,19 @@ export default function ReviewManagementDashboard() {
         return statusMatch && ratingMatch;
     });
 
-    const averageRating = (reviews.reduce((acc, curr) => acc + curr.rating, 0) / reviews.length).toFixed(1);
+    const averageRating = reviews.length > 0 
+        ? (reviews.reduce((acc, curr) => acc + curr.rating, 0) / reviews.length).toFixed(1)
+        : "0.0";
+
+    // --- LOADING STATE ---
+    if (isLoading) {
+        return (
+            <div className="min-h-screen flex items-center justify-center bg-gray-50">
+                <Loader2 className="h-8 w-8 animate-spin text-indigo-600" />
+                <span className="ml-3 font-medium text-gray-600">Loading your reviews...</span>
+            </div>
+        );
+    }
 
     return (
         <div className="min-h-screen bg-gray-50 font-sans text-gray-900 p-8">
@@ -147,7 +162,7 @@ export default function ReviewManagementDashboard() {
                             <div className="p-2 bg-yellow-50 rounded-lg text-yellow-600 font-bold text-xl">{averageRating}</div>
                             <div className="text-xs">
                                 <p className="font-bold text-gray-900">Avg Rating</p>
-                                <p className="text-gray-500">Last 30 days</p>
+                                <p className="text-gray-500">All time</p>
                             </div>
                         </div>
                         <div className="flex items-center gap-3 bg-white px-4 py-2 rounded-xl border border-gray-200 shadow-sm">
@@ -163,10 +178,10 @@ export default function ReviewManagementDashboard() {
                 {/* --- CONTROLS BAR --- */}
                 <div className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm flex flex-col md:flex-row justify-between items-center gap-4 sticky top-4 z-10">
                     <div className="flex gap-2 w-full md:w-auto overflow-x-auto pb-2 md:pb-0">
-                        {['all', 'pending', 'replied'].map(status => (
+                        {(['all', 'pending', 'replied'] as FilterStatus[]).map(status => (
                             <button
                                 key={status}
-                                onClick={() => setActiveFilter(status as any)}
+                                onClick={() => setActiveFilter(status)}
                                 className={`px-4 py-2 rounded-lg text-sm font-bold capitalize transition-colors whitespace-nowrap ${
                                     activeFilter === status 
                                     ? 'bg-indigo-600 text-white shadow-sm' 
@@ -194,7 +209,7 @@ export default function ReviewManagementDashboard() {
                                 </div>
                             </div>
                             <button 
-                                onClick={() => setAutoReplyEnabled(!autoReplyEnabled)}
+                                onClick={handleToggleAutoReply}
                                 className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors focus:outline-none ${autoReplyEnabled ? 'bg-indigo-600' : 'bg-gray-300'}`}
                             >
                                 <span className={`inline-block h-3 w-3 transform rounded-full bg-white transition-transform ${autoReplyEnabled ? 'translate-x-5' : 'translate-x-1'}`} />
@@ -230,7 +245,7 @@ export default function ReviewManagementDashboard() {
 
             {/* --- REVIEWS FEED --- */}
             <div className="max-w-5xl mx-auto space-y-6 pb-20">
-                {filteredReviews.length === 0 ? (
+                {!filteredReviews || filteredReviews.length === 0 ? (
                      <div className="text-center py-20 bg-white rounded-xl border border-dashed border-gray-300">
                         <div className="bg-gray-50 p-4 rounded-full inline-block mb-4">
                             <MessageSquare className="h-8 w-8 text-gray-400" />
@@ -245,20 +260,20 @@ export default function ReviewManagementDashboard() {
                                 {/* Review Header */}
                                 <div className="flex justify-between items-start mb-4">
                                     <div className="flex gap-4">
-                                        <div className={`h-12 w-12 rounded-full flex items-center justify-center text-lg font-bold ${review.customer.avatar_color}`}>
-                                            {review.customer.name.charAt(0)}
+                                        <div className={`h-12 w-12 rounded-full flex items-center justify-center text-lg font-bold ${review.customer?.avatar_color || 'bg-gray-100 text-gray-600'}`}>
+                                            {review.customer?.name?.charAt(0) || 'U'}
                                         </div>
                                         <div>
                                             <div className="flex items-center gap-2">
-                                                <h3 className="font-bold text-gray-900">{review.customer.name}</h3>
-                                                {review.customer.verified && (
+                                                <h3 className="font-bold text-gray-900">{review.customer?.name}</h3>
+                                                {review.customer?.verified && (
                                                     <span className="text-[10px] flex items-center gap-0.5 bg-green-50 text-green-700 px-1.5 py-0.5 rounded font-bold uppercase tracking-wider">
                                                         <CheckCircle2 className="h-3 w-3" /> Verified
                                                     </span>
                                                 )}
                                             </div>
                                             <p className="text-xs text-gray-500 mt-0.5 flex items-center gap-2">
-                                                {review.date} • <span className="text-indigo-600 font-medium hover:underline cursor-pointer">{review.product.name}</span>
+                                                {review.date} • <span className="text-indigo-600 font-medium hover:underline cursor-pointer">{review.product?.name}</span>
                                             </p>
                                         </div>
                                     </div>
@@ -300,15 +315,14 @@ export default function ReviewManagementDashboard() {
 
                                 {/* Action / Reply Area */}
                                 <div className="pl-16">
-                                    {review.status === 'replied' ? (
+                                    {review.status === 'replied' && review.seller_reply ? (
                                         // Display Existing Reply
                                         <div className="bg-gray-50 rounded-lg p-4 border border-gray-100 relative">
                                             <div className="absolute top-4 left-0 w-1 h-8 bg-indigo-500 rounded-r"></div>
                                             <div className="flex items-center gap-2 mb-1">
                                                 <span className="text-xs font-bold bg-indigo-100 text-indigo-700 px-2 py-0.5 rounded uppercase">Your Reply</span>
-                                                <span className="text-xs text-gray-400">Posted just now</span>
                                             </div>
-                                            <p className="text-sm text-gray-600 italic">
+                                            <p className="text-sm text-gray-600 italic mt-2">
                                                 {review.seller_reply}
                                             </p>
                                             <button className="absolute top-4 right-4 text-gray-400 hover:text-indigo-600">
@@ -321,7 +335,7 @@ export default function ReviewManagementDashboard() {
                                             <div className="bg-white border border-indigo-100 rounded-xl shadow-sm p-4 animate-in fade-in slide-in-from-top-1">
                                                 <div className="flex items-center justify-between mb-3">
                                                     <span className="text-xs font-bold text-gray-500 uppercase flex items-center gap-2">
-                                                        <Reply className="h-4 w-4" /> Replying to {review.customer.name}
+                                                        <Reply className="h-4 w-4" /> Replying to {review.customer?.name}
                                                     </span>
                                                     
                                                     {/* Quick Templates */}

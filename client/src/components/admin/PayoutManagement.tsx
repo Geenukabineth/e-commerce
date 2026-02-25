@@ -9,8 +9,16 @@ import {
     RefreshCcw,
     Loader2 
 } from "lucide-react";
-// Import the specific API functions based on your auth.payment.ts
-import { getAdminFinaceApi, resolveRefundApi, toggleAutoPayoutsApi } from "../../auth/auth.payment";
+
+// Import ALL the specific API functions we need
+import { 
+    getAdminFinaceApi, 
+    resolveRefundApi, 
+    toggleAutoPayoutsApi,
+    getPayoutListApi,
+    getRefundListApi,
+    getWalletHubApi
+} from "../../auth/auth.payment";
 
 // --- TYPES ---
 interface Payout {
@@ -57,18 +65,15 @@ interface RefundRequest {
     auto_resolve_date: string;
 }
 
-// Define the expected structure from the FinanceDashboardView API
+// Matches the ACTUAL backend response from FinanceDashboardView
 interface FinanceData {
-    automation_enabled?: boolean; // <--- ADDED: Matches backend response
-    balance?: {
+    stats?: {
+        automation_enabled: boolean;
         platform_revenue: number;
         pending_clearance: number;
         vendor_holdings: number;
     };
-    payouts?: Payout[];
-    transactions?: Transaction[];
-    refunds?: RefundRequest[];
-    taxRecords?: VendorTaxRecord[];
+    tax_records?: VendorTaxRecord[];
 }
 
 export default function PayoutManagement() {
@@ -77,7 +82,7 @@ export default function PayoutManagement() {
     const [automationEnabled, setAutomationEnabled] = useState(true);
     const [isLoading, setIsLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
-    const [actionLoading, setActionLoading] = useState<number | null>(null); // Track which item is processing
+    const [actionLoading, setActionLoading] = useState<number | null>(null); 
 
     // --- DATA STATE (Initialized with safe defaults) ---
     const [balance, setBalance] = useState({
@@ -95,24 +100,31 @@ export default function PayoutManagement() {
         const fetchData = async () => {
             setIsLoading(true);
             try {
-                // Calls the endpoint mapped to FinanceDashboardView
-                const data: FinanceData = await getAdminFinaceApi();
+                // Fetch all data concurrently for better performance
+                const [financeData, payoutsData, refundsData, walletData] = await Promise.all([
+                    getAdminFinaceApi(), // Gets stats & tax records
+                    getPayoutListApi(),  // Gets payout history
+                    getRefundListApi(),  // Gets refund disputes
+                    getWalletHubApi()    // Gets recent transactions
+                ]);
                 
-                // 1. Set Automation State from Backend (Default to false if missing)
-                setAutomationEnabled(data?.automation_enabled ?? false);
+                // 1. Set Automation State from Backend
+                setAutomationEnabled(financeData?.stats?.automation_enabled ?? false);
 
-                // 2. Set Balance Data
-                setBalance(data?.balance || { 
-                    platform_revenue: 0, 
-                    pending_clearance: 0, 
-                    vendor_holdings: 0 
+                // 2. Set Balance Data (Mapped from 'stats')
+                setBalance({ 
+                    platform_revenue: financeData?.stats?.platform_revenue || 0, 
+                    pending_clearance: financeData?.stats?.pending_clearance || 0, 
+                    vendor_holdings: financeData?.stats?.vendor_holdings || 0 
                 });
 
-                // 3. Set Lists
-                setPayouts(data?.payouts || []);
-                setTransactions(data?.transactions || []);
-                setRefunds(data?.refunds || []);
-                setTaxRecords(data?.taxRecords || []);
+                // 3. Set Tax Records (Mapped from 'tax_records')
+                setTaxRecords(financeData?.tax_records || []);
+
+                // 4. Set Lists from their respective API calls
+                setPayouts(payoutsData || []);
+                setRefunds(refundsData || []);
+                setTransactions(walletData?.transactions || []);
 
             } catch (err) {
                 console.error("Failed to fetch finance data:", err);
@@ -127,7 +139,7 @@ export default function PayoutManagement() {
 
     // --- ACTIONS ---
     
-    // NEW: Handle Auto-Payout Toggle
+    // Handle Auto-Payout Toggle
     const handleToggleAutomation = async () => {
         const newState = !automationEnabled;
         
@@ -153,7 +165,6 @@ export default function PayoutManagement() {
 
         setActionLoading(id);
         try {
-            // Calls the API mapped to RefundActionView
             await resolveRefundApi(id, action);
             
             // Optimistic update: Update local state to reflect change immediately
@@ -325,7 +336,7 @@ export default function PayoutManagement() {
                                                 </td>
                                                 <td className="px-6 py-4 text-sm text-gray-500">{txn.date}</td>
                                                 <td className={`px-6 py-4 text-right font-bold text-sm ${txn.amount > 0 ? 'text-green-600' : 'text-gray-900'}`}>
-                                                    {txn.amount > 0 ? '+' : ''}{txn.amount.toFixed(2)}
+                                                    {txn.amount > 0 ? '+' : ''}{Number(txn.amount).toFixed(2)}
                                                 </td>
                                             </tr>
                                         ))}
@@ -376,7 +387,7 @@ export default function PayoutManagement() {
                                     <div className="flex flex-col justify-between items-end min-w-[200px] border-l border-gray-100 pl-6">
                                         <div className="text-right">
                                             <p className="text-xs text-gray-400 font-bold uppercase">Refund Amount</p>
-                                            <p className="text-2xl font-bold text-red-600">${refund.amount.toFixed(2)}</p>
+                                            <p className="text-2xl font-bold text-red-600">${Number(refund.amount).toFixed(2)}</p>
                                         </div>
                                         
                                         {refund.status === 'pending' || refund.status === 'escalated' ? (
@@ -445,7 +456,7 @@ export default function PayoutManagement() {
                                                     {p.status}
                                                 </span>
                                             </td>
-                                            <td className="px-6 py-4 text-right font-bold text-gray-900">${p.amount.toFixed(2)}</td>
+                                            <td className="px-6 py-4 text-right font-bold text-gray-900">${Number(p.amount).toFixed(2)}</td>
                                         </tr>
                                     ))}
                                     {(payouts || []).length === 0 && (
@@ -473,7 +484,7 @@ export default function PayoutManagement() {
                                             }
                                         </div>
                                         <p className="text-sm text-gray-500">Tax ID: <span className="font-mono">{vendor.tax_id}</span></p>
-                                        <p className="text-sm text-gray-500">YTD Earnings: <span className="font-bold text-green-700">${vendor.total_earnings_ytd.toLocaleString()}</span></p>
+                                        <p className="text-sm text-gray-500">YTD Earnings: <span className="font-bold text-green-700">${Number(vendor.total_earnings_ytd).toLocaleString()}</span></p>
                                     </div>
                                     
                                     <div className="flex gap-3">

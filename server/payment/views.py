@@ -3,15 +3,19 @@ from rest_framework.response import Response
 from rest_framework import status, permissions
 from django.db.models import Sum, Q
 from django.shortcuts import get_object_or_404
-from .models import Wallet, Payout, RefundRequest, TaxProfile, Subscription,PaymentMethod
+
+from .models import Orders, Wallet, Payout, RefundRequest, TaxProfile, Subscription,PaymentMethod,PromotionRequest
 from .serializers import (
+    OrderSerializer,
     WalletDashboardSerializer, 
     PayoutSerializer, 
     RefundRequestSerializer,
     TaxProfileSerializer,
     PaymentMethodSerializer,
     SubscriptionSerializer,
+    ProductPromotionSerializer
 )
+from Profile.permission import IsSeller, IsAdminorSeller, IsBuyer
 
 # --- WALLET HUB ---
 
@@ -265,3 +269,58 @@ class SubscriptionListView(APIView):
         
         sub.save()
         return Response({'status': sub.status, 'id': sub.id})
+    
+class ProductPromotionView(APIView):
+    permission_classes = [IsSeller]
+
+    def post(self, request):
+        serializer = ProductPromotionSerializer(data=request.data)
+        if serializer.is_valid():
+            serializer.save(vendor=request.user)
+            return Response(serializer.data, status=status.HTTP_201_CREATED)
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+    
+    def get(self, request):
+        promotions = PromotionRequest.objects.filter(vendor=request.user).order_by('-created_at')
+        serializer = ProductPromotionSerializer(promotions, many=True)
+        return Response(serializer.data, status=status.HTTP_200_OK)
+    
+    def delete(self, request, pk):
+        promotion = get_object_or_404(PromotionRequest, pk=pk, vendor=request.user)
+        promotion.delete()
+        return Response(status=status.HTTP_204_NO_CONTENT)
+    def put(self, request, pk):
+        promotion = get_object_or_404(PromotionRequest, pk=pk, vendor=request.user)
+        serializer = ProductPromotionSerializer(promotion, data=request.data, partial=True)
+        if serializer.is_valid():
+            serializer.save()
+            return Response(serializer.data)
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+    
+
+class OrdersView(APIView):
+    permission_classes = [permissions.IsAuthenticated]
+    def get(self, request):
+        orders = Orders.objects.all().order_by('-date')
+        
+        serializer = OrderSerializer(orders, many=True)
+        return Response(serializer.data, status=status.HTTP_200_OK)
+    
+    def post (self, request):
+        serializer = OrderSerializer(data=request.data)
+        if serializer.is_valid():
+            serializer.save()
+            return Response(serializer.data, status=status.HTTP_201_CREATED)
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+    def put(self, request, pk):
+        order = get_object_or_404(Orders, pk=pk)
+        serializer = OrderSerializer(order, data=request.data, partial=True)
+        if serializer.is_valid():
+            serializer.save()
+            return Response(serializer.data)
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+    
+    def delete(self, request, pk):
+        order = get_object_or_404(Orders, pk=pk)
+        order.delete()
+        return Response(status=status.HTTP_204_NO_CONTENT)

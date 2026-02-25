@@ -5,7 +5,10 @@ export async function getAdminProductsApi() {
     const res = await http.get("/v2/admin/products/");
     return res.data;
 }
-
+export async function getrelatedsellerProductsApi() {
+    const res = await http.get("/v2/products/seller/");
+    return res.data;
+}
 
 export async function approveProductApi(productId: number, demandScore: number) {
     const res = await http.post(`/v2/admin/products/${productId}/approve/`, { demand_score: demandScore });
@@ -55,5 +58,24 @@ export async function getModerationStatsApi() {
 
 export async function resolveModerationItemApi(id: number, action: 'approve' | 'remove') {
     const res = await http.post(`/v2/moderation/${id}/resolve/`, { action });
+    return res.data;
+}
+
+export async function getProductReviewsApi() {
+    const res = await http.get("/v2/reviews/");
+    return res.data;
+}
+export async function replyToReviewApi(reviewId: number, replyText: string) {
+    const res = await http.post(`/v2/reviews/${reviewId}/reply/`, { reply_text: replyText });
+    return res.data;
+}
+
+export async function getStoreSettingsApi() {
+    const res = await http.get("/v2/settings/toggle_auto_reply/");
+    return res.data;
+}
+
+export async function toggleAutoReplyApi(enabled: boolean) {
+    const res = await http.post("/v2/settings/toggle_auto_reply/", { autoReplyEnabled: enabled });
     return res.data;
 }

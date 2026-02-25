@@ -4,15 +4,16 @@ from rest_framework import status
 from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated,AllowAny
 from rest_framework.views import APIView
-from .models import Product,ModerationItem
-from .serializers import ProductSerializer,ModerationItemSerializer
+from .models import Product,ModerationItem,ProductReview, StoreSettings
+from .serializers import ProductSerializer,ModerationItemSerializer,ProductReviewSerializer
 from rest_framework import permissions
 from rest_framework.decorators import action
 from .utilty import MarketIntelligenceService,analyze_content_risk
+from Profile.permission import IsSeller,IsAdminorSeller,IsBuyer
 
 
 class ProductViewSet(APIView):
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsSeller]
 
     def get(self, request):
         products = Product.objects.filter(seller=request.user) 
@@ -25,6 +26,15 @@ class ProductViewSet(APIView):
             serializer.save(seller=request.user) 
             return Response(serializer.data, status=status.HTTP_201_CREATED)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+class SellerRelatedProductViewSet(APIView):
+    permission_classes = [IsSeller]
+    def get(self, request):
+        products = Product.objects.filter(seller=request.user, status='approved') 
+        serializer = ProductSerializer(products, many=True)
+        return Response(serializer.data)
+    
+
 
 class ProductDetailView(APIView):
     permission_classes = [IsAuthenticated]
@@ -218,3 +228,53 @@ class ModerationStatsView(APIView):
             "auto_approved": 540,
             "accuracy": "96%"
         })
+
+
+class ReviewViewSet(APIView):
+    permission_classes = [IsSeller]
+    # Only fetch top-level reviews, ignore the replies themselves in the main feed
+    queryset = ProductReview.objects.filter(reply_to__isnull=True).order_by('-created_at')
+    serializer_class = ProductReviewSerializer
+
+    # POST /api/reviews/{id}/reply/
+    def post(self, request, pk=None):
+        parent_review = self.get_object()
+        reply_text = request.data.get('reply_text')
+        
+        if not reply_text:
+            return Response({"error": "reply_text is required."}, status=status.HTTP_400_BAD_REQUEST)
+        
+        # Create a new review linked as a reply
+        ProductReview.objects.create(
+            product=parent_review.product,
+            user=request.user, # The currently logged-in seller/admin
+            rating=0,
+            comment=reply_text,
+            reply_to=parent_review,
+            status='approved'
+        )
+        
+        # Return the updated parent review so React updates instantly
+        return Response(ProductReviewSerializer(parent_review).data)
+
+    def get(self,request, pk=None):
+        reviews = self.queryset.filter(product__seller=request.user)
+        serializer = self.serializer_class(reviews, many=True)
+        return Response(serializer.data)
+
+class SettingsViewSet(APIView):
+    permission_classes = [IsSeller]
+    # GET /api/settings/
+    def get(self, request):
+        settings = StoreSettings.load()
+        return Response({"autoReplyEnabled": settings.auto_reply_enabled})
+
+    # POST /api/settings/toggle_auto_reply/
+    def post(self, request):
+        settings = StoreSettings.load()
+        enabled_state = request.data.get('autoReplyEnabled', not settings.auto_reply_enabled)
+        
+        settings.auto_reply_enabled = enabled_state
+        settings.save()
+        
+        return Response({"autoReplyEnabled": settings.auto_reply_enabled})

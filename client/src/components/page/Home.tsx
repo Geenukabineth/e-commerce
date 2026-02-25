@@ -22,7 +22,7 @@ export default function Home() {
   const isLoggedIn = !!tokenStore.getAccess();
 
   return (
-    <div className="mx-auto max-w-5xl px-4 py-8">
+    <div className="">
       
       {/* --- HERO SECTION --- */}
       <div className="rounded-2xl bg-black px-8 py-12 text-center text-white shadow-lg md:py-20">

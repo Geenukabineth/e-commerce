@@ -11,42 +11,28 @@ import {
     Loader2,
     Tag,
     PlusCircle,
-    CheckCircle
+    CheckCircle,
+    Trash2,
+    PauseCircle
 } from "lucide-react";
+import type { Promotion, SalesMetric, Influencer } from "../../auth/auth.types";
 
-// Import your API functions (You will need to create getMetrics and getPromotions in your auth file)
+// Influencer API
 import { getInfluencers } from "../../auth/auth.sales";
-
-// --- TYPES ---
-interface SalesMetric {
-    label: string;
-    value: string;
-    change: string;
-    trend: 'up' | 'down';
-}
-
-interface Influencer {
-    handle: string;
-    followers: string;
-    match_score: number;
-    platform: string; 
-    bio_snippet: string; 
-}
-
-interface Promotion {
-    id: number | string;
-    product_name: string;
-    discount_amount: string;
-    duration: string;
-    status: string;
-}
+import { getrelatedsellerProductsApi } from "../../auth/auth.Productapi";
+// Real Promotion APIs
+import { 
+    postSellerPromotionsApi, 
+    getSellerPromotionsApi,
+    deleteSellerPromotionsApi,
+    putSellerPromotionsApi 
+} from "../../auth/auth.payment";
 
 export default function SalesInstergram() {
     const [activeTab, setActiveTab] = useState<'overview' | 'promotions' | 'influencers'>('overview');
     
     // --- STATE FOR REAL DATA ---
     const [metrics, setMetrics] = useState<SalesMetric[]>([
-        // Fallback default data while real data loads
         { label: "Total Revenue", value: "$0", change: "0%", trend: "up" },
         { label: "Active Campaigns", value: "0", change: "0", trend: "up" },
         { label: "Influencer ROI", value: "0%", change: "0%", trend: "up" },
@@ -58,42 +44,39 @@ export default function SalesInstergram() {
     // --- INFLUENCER STATE ---
     const [searchCategory, setSearchCategory] = useState('');
     const [searchHashtag, setSearchHashtag] = useState('');
+    const [products, setProducts] = useState<any[]>([]); // Added products state
     const [isSearching, setIsSearching] = useState(false);
     const [influencers, setInfluencers] = useState<Influencer[]>([]);
 
     // --- PROMOTION FORM STATE ---
-    const [newProduct, setNewProduct] = useState('');
+    const [newProduct, setNewProduct] = useState(''); // Will now hold the product ID
     const [newDiscount, setNewDiscount] = useState('');
     const [newDuration, setNewDuration] = useState('');
     const [isSubmittingPromo, setIsSubmittingPromo] = useState(false);
 
-    // --- FETCH REAL INITIAL DATA ---
+    // --- 1. FETCH REAL INITIAL DATA (GET) ---
     useEffect(() => {
         const fetchDashboardData = async () => {
             setIsLoadingData(true);
             try {
-                // REPLACE THESE WITH YOUR ACTUAL API CALLS
-                // const metricsData = await getMetrics();
-                // const promoData = await getPromotions();
-                // setMetrics(metricsData);
-                // setPromotions(promoData);
+                // Fetch real promotions from your Django backend
+                const promoData = await getSellerPromotionsApi();
+                setPromotions(promoData);
 
-                // SIMULATED REAL DATA FETCH FOR DEMONSTRATION:
-                setTimeout(() => {
-                    setMetrics([
-                        { label: "Total Revenue", value: "$124,500", change: "+12.5%", trend: "up" },
-                        { label: "Active Campaigns", value: "8", change: "+2", trend: "up" },
-                        { label: "Influencer ROI", value: "310%", change: "+5.2%", trend: "up" },
-                        { label: "Reach", value: "1.2M", change: "+15%", trend: "up" },
-                    ]);
-                    setPromotions([
-                        { id: 1, product_name: "Wireless Earbuds", discount_amount: "20% OFF", duration: "7 Days", status: "active" },
-                        { id: 2, product_name: "Yoga Mat", discount_amount: "$10 OFF", duration: "14 Days", status: "active" },
-                    ]);
-                    setIsLoadingData(false);
-                }, 800);
+                // Fetch seller products for the dropdown
+                const productsData = await getrelatedsellerProductsApi();
+                setProducts(productsData);
+
+                // Mocking metrics until you have a metrics API
+                setMetrics([
+                    { label: "Total Revenue", value: "$124,500", change: "+12.5%", trend: "up" },
+                    { label: "Active Campaigns", value: `${promoData.length}`, change: "+2", trend: "up" },
+                    { label: "Influencer ROI", value: "310%", change: "+5.2%", trend: "up" },
+                    { label: "Reach", value: "1.2M", change: "+15%", trend: "up" },
+                ]);
             } catch (error) {
                 console.error("Failed to load dashboard data", error);
+            } finally {
                 setIsLoadingData(false);
             }
         };
@@ -101,7 +84,71 @@ export default function SalesInstergram() {
         fetchDashboardData();
     }, []);
 
-    // --- ACTIONS ---
+    // --- 2. CREATE PROMOTION (POST) ---
+    const handleCreatePromotion = async (e: React.FormEvent) => {
+        e.preventDefault();
+        if(!newProduct || !newDiscount || !newDuration) return;
+
+        setIsSubmittingPromo(true);
+        try {
+            const payload = {
+                product_id: newProduct, // Updated to send the ID from the dropdown
+                discount_amount: newDiscount,
+                duration: newDuration,
+                status: "active"
+            };
+            
+            // Send POST request to backend
+            const createdPromo = await postSellerPromotionsApi(payload);
+            
+            // Add the newly created promo to the top of the list
+            setPromotions([createdPromo, ...promotions]);
+            
+            // Clear form
+            setNewProduct('');
+            setNewDiscount('');
+            setNewDuration('');
+            alert("Promotion successfully added!");
+        } catch (error) {
+            console.error("Error creating promotion", error);
+            alert("Failed to create promotion.");
+        } finally {
+            setIsSubmittingPromo(false);
+        }
+    };
+
+    // --- 3. DELETE PROMOTION (DELETE) ---
+    const handleDeletePromotion = async (id: number | string) => {
+        if (!window.confirm("Are you sure you want to delete this promotion?")) return;
+        
+        try {
+            await deleteSellerPromotionsApi(Number(id));
+            // Remove from UI state
+            setPromotions(promotions.filter(promo => promo.id !== id));
+        } catch (error) {
+            console.error("Error deleting promotion", error);
+            alert("Failed to delete promotion.");
+        }
+    };
+
+    // --- 4. UPDATE PROMOTION STATUS (PUT) ---
+    const handleToggleStatus = async (promo: Promotion) => {
+        try {
+            const newStatus = promo.status === 'active' ? 'paused' : 'active';
+            const updatedPromo = await putSellerPromotionsApi(Number(promo.id), { 
+                ...promo, 
+                status: newStatus 
+            });
+            
+            // Update UI state with the modified promotion
+            setPromotions(promotions.map(p => p.id === promo.id ? updatedPromo : p));
+        } catch (error) {
+            console.error("Error updating promotion", error);
+            alert("Failed to update status.");
+        }
+    };
+
+    // --- INFLUENCER ACTIONS ---
     const handleAutoFindInfluencers = async () => {
         if (!searchCategory && !searchHashtag) {
             alert("Please enter a category or hashtag to search.");
@@ -119,38 +166,6 @@ export default function SalesInstergram() {
             alert("Failed to connect to the server.");
         } finally {
             setIsSearching(false);
-        }
-    };
-
-    const handleCreatePromotion = async (e: React.FormEvent) => {
-        e.preventDefault();
-        if(!newProduct || !newDiscount || !newDuration) return;
-
-        setIsSubmittingPromo(true);
-        try {
-            // REPLACE WITH REAL API POST CALL:
-            // const createdPromo = await createPromotion({ product_name: newProduct, discount_amount: newDiscount, duration: newDuration });
-            
-            // SIMULATED CREATION:
-            setTimeout(() => {
-                const newPromo: Promotion = {
-                    id: Date.now(),
-                    product_name: newProduct,
-                    discount_amount: newDiscount,
-                    duration: newDuration,
-                    status: "active"
-                };
-                setPromotions([newPromo, ...promotions]);
-                setNewProduct('');
-                setNewDiscount('');
-                setNewDuration('');
-                setIsSubmittingPromo(false);
-                alert("Promotion successfully added to product!");
-            }, 500);
-
-        } catch (error) {
-            console.error("Error creating promotion", error);
-            setIsSubmittingPromo(false);
         }
     };
 
@@ -241,15 +256,21 @@ export default function SalesInstergram() {
                             
                             <div className="space-y-4">
                                 <div>
-                                    <label className="block text-xs font-bold text-gray-700 uppercase mb-2">Product Name</label>
-                                    <input 
-                                        type="text" 
+                                    <label className="block text-xs font-bold text-gray-700 uppercase mb-2">Select Product</label>
+                                    {/* UPDATED: Changed from text input to Select Dropdown */}
+                                    <select 
                                         required
                                         value={newProduct}
                                         onChange={(e) => setNewProduct(e.target.value)}
-                                        placeholder="e.g. Wireless Headphones" 
-                                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none" 
-                                    />
+                                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none bg-white" 
+                                    >
+                                        <option value="" disabled>-- Choose a Product --</option>
+                                        {products.map((product) => (
+                                            <option key={product.id} value={product.id}>
+                                                {product.name} {/* Assuming your product model uses "name" */}
+                                            </option>
+                                        ))}
+                                    </select>
                                 </div>
                                 <div>
                                     <label className="block text-xs font-bold text-gray-700 uppercase mb-2">Discount Amount</label>
@@ -290,7 +311,7 @@ export default function SalesInstergram() {
                     <div className="lg:col-span-2">
                         <div className="bg-white p-6 rounded-xl border border-gray-200 shadow-sm h-full">
                             <h3 className="font-bold text-gray-900 mb-4 flex items-center gap-2">
-                                <CheckCircle className="h-5 w-5 text-green-500" /> Active Product Promotions
+                                <CheckCircle className="h-5 w-5 text-green-500" /> Your Product Promotions
                             </h3>
                             
                             {isLoadingData ? (
@@ -298,16 +319,18 @@ export default function SalesInstergram() {
                             ) : promotions.length === 0 ? (
                                 <div className="text-center py-10 bg-gray-50 rounded-lg border border-dashed border-gray-200">
                                     <Tag className="h-8 w-8 text-gray-300 mx-auto mb-2" />
-                                    <p className="text-gray-500 text-sm">No active promotions. Create one to get started.</p>
+                                    <p className="text-gray-500 text-sm">No promotions found. Create one to get started.</p>
                                 </div>
                             ) : (
                                 <div className="space-y-3">
                                     {promotions.map((promo) => (
                                         <div key={promo.id} className="flex justify-between items-center p-4 border border-gray-100 rounded-lg hover:bg-gray-50 transition">
                                             <div>
-                                                <h4 className="font-bold text-gray-900">{promo.product_name}</h4>
+                                                <h4 className={`font-bold ${promo.status === 'active' ? 'text-gray-900' : 'text-gray-400 line-through'}`}>
+                                                    {promo.product_name}
+                                                </h4>
                                                 <div className="flex items-center gap-3 mt-1">
-                                                    <span className="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold bg-green-100 text-green-800">
+                                                    <span className={`inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold ${promo.status === 'active' ? 'bg-green-100 text-green-800' : 'bg-gray-200 text-gray-600'}`}>
                                                         {promo.discount_amount}
                                                     </span>
                                                     <span className="text-xs text-gray-500 flex items-center gap-1">
@@ -315,7 +338,29 @@ export default function SalesInstergram() {
                                                     </span>
                                                 </div>
                                             </div>
-                                            <span className="h-2.5 w-2.5 rounded-full bg-green-500 shadow-sm" title="Active"></span>
+                                            <div className="flex items-center gap-3">
+                                                {/* Toggle Status Button (PUT) */}
+                                                <button 
+                                                    onClick={() => handleToggleStatus(promo)}
+                                                    title={promo.status === 'active' ? 'Pause Promotion' : 'Activate Promotion'}
+                                                    className="focus:outline-none"
+                                                >
+                                                    {promo.status === 'active' ? (
+                                                        <CheckCircle className="h-5 w-5 text-green-500 hover:text-green-600 transition" />
+                                                    ) : (
+                                                        <PauseCircle className="h-5 w-5 text-gray-400 hover:text-gray-500 transition" />
+                                                    )}
+                                                </button>
+
+                                                {/* Delete Button (DELETE) */}
+                                                <button 
+                                                    onClick={() => handleDeletePromotion(promo.id)}
+                                                    className="p-2 text-gray-400 hover:bg-red-50 hover:text-red-600 rounded-md transition"
+                                                    title="Delete Promotion"
+                                                >
+                                                    <Trash2 className="h-4 w-4" />
+                                                </button>
+                                            </div>
                                         </div>
                                     ))}
                                 </div>
@@ -424,7 +469,6 @@ export default function SalesInstergram() {
                                         >
                                             View Profile on {inf.platform}
                                         </a>
-                                        {/* Optional button to link the influencer with a created promotion */}
                                         <button 
                                             onClick={() => alert(`Propose your active promotions to ${inf.handle} via DM!`)}
                                             className="block w-full text-center py-2 bg-indigo-50 text-indigo-700 border border-indigo-100 text-xs font-bold rounded-lg hover:bg-indigo-100 transition"

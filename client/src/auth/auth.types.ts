@@ -70,3 +70,64 @@ export interface Product {
   
 }
 
+export interface Promotion {
+    id: number | string;
+    product_name: string;
+    discount_amount: string;
+    duration: string;
+    status: string;
+}
+
+export interface Influencer {
+    handle: string;
+    followers: string;
+    match_score: number;
+    platform: string; 
+    bio_snippet: string; 
+}
+
+export interface SalesMetric {
+    label: string;
+    value: string;
+    change: string;
+    trend: 'up' | 'down';
+}
+
+export interface OrderItem {
+    id: string;
+    name: string;
+    variant: string;
+    sku: string;
+    quantity: number;
+    price: number;
+    image: string;
+}
+
+export interface TimelineEvent {
+    status: string;
+    date: string;
+    completed: boolean;
+}
+
+export interface Order {
+    id: string;
+    orderNumber: string;
+    date: string;
+    status: 'processing' | 'shipped' | 'delivered' | 'cancelled' | 'on_hold';
+    paymentStatus: 'paid' | 'pending' | 'refunded';
+    total: number;
+    customer: {
+        name: string;
+        email: string;
+        phone: string;
+        address: string;
+        city: string;
+        country: string;
+        ltv: number; // Lifetime Value
+        risk_score: 'low' | 'medium' | 'high';
+        orders_count: number;
+    };
+    items: OrderItem[];
+    timeline: TimelineEvent[];
+    notes: string;
+}

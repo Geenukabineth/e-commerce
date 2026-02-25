@@ -33,16 +33,11 @@ export async function resolveRefundApi(id: number, decision: 'approve' | 'reject
 }
 
 export async function toggleAutoPayoutsApi(enabled: boolean) {
-    // Matches a hypothetical endpoint: path('finance/auto-payouts/', ...)
     const res = await http.post("/v3/finance/auto-payouts/", { enabled });
     return res.data;
 }
 
-
-// --- CLIENT REFUNDS ---
-
 export async function getMyRefundsApi() {
-    // New endpoint for clients to see their own requests
     const res = await http.get("/v3/refunds/my-requests/");
     return res.data;
 }
@@ -76,7 +71,6 @@ export async function updateCardApi(id: number, data: any) {
     return res.data;
 }
 
-// --- SUBSCRIPTIONS ---
 export async function getSubscriptionsApi() {
     const res = await http.get("/v3/billing/subscriptions/");
     return res.data;
@@ -85,4 +79,39 @@ export async function getSubscriptionsApi() {
 export async function subscriptionActionApi(id: number, action: 'pause' | 'resume' | 'cancel') {
     const res = await http.post(`/v3/billing/subscriptions/${id}/action/`, { action });
     return res.data;
+}
+
+export async function getSellerPromotionsApi() {
+    const res = await http.get("/v3/promotions/");
+    return res.data;
+}
+export async function putSellerPromotionsApi(id: number, data: any) {
+    const res = await http.put(`/v3/promotions/${id}/`, data);
+    return res.data;
+}
+
+export async function postSellerPromotionsApi(data: any) {
+    const res = await http.post("/v3/promotions/", data);
+    return res.data;
+}
+
+export async function deleteSellerPromotionsApi(id: number) {
+    await http.delete(`/v3/promotions/${id}/`);
+}
+
+export async function getOrdersApi() {
+    const res = await http.get("/v3/orders/");
+    return res.data;
+}
+
+export async function postOrdersApi(data: any) {
+    const res = await http.post("/v3/orders/", data);
+    return res.data;
+}
+export async function putOrderDetailApi(id: number, data: any) {
+    const res = await http.put(`/v3/orders/${id}/`, data);
+    return res.data;
+}
+export async function deleteOrderApi(id: number) {
+    await http.delete(`/v3/orders/${id}/`);
 }

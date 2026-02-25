@@ -1,6 +1,7 @@
 from django.db import models
 from django.conf import settings
 from django.utils import timezone
+from products.models import Product
 
 # --- ENUMS ---
 PAYMENT_TYPE = [('visa', 'Visa'), ('mastercard', 'Mastercard'), ('amex', 'Amex')]
@@ -12,6 +13,7 @@ TRANSACTION_CATEGORY = [
     ('refund', 'Refund'),
     ('installment', 'Installment'),
     ('service', 'Service')
+    
 ]
 
 TRANSACTION_STATUS = [
@@ -27,12 +29,32 @@ PAYOUT_STATUS = [
     ('paid', 'Paid'),
     ('failed', 'Failed')
 ]
+PAYOUT_METHODS = [
+    ('stripe', 'Stripe'),
+    ('bank_transfer', 'Bank Transfer'),
+    ('paypal', 'PayPal')
+]
 
 REFUND_STATUS = [
     ('pending', 'Pending'),
     ('approved', 'Approved'),
     ('rejected', 'Rejected'),
     ('escalated', 'Escalated')
+]
+
+SHIPPING_STATUS = [
+    ('pending', 'Pending'),
+    ('shipped', 'Shipped'),
+    ('delivered', 'Delivered'),    
+    ('cancelled', 'Cancelled'),
+    ('out_for_delivery', 'Out for Delivery'),
+]
+
+BILLING_STATUS = [
+    ('active', 'Active'), 
+    ('paused', 'Paused'), 
+    ('cancelled', 'Cancelled'), 
+    ('payment_failed', 'Payment Failed')
 ]
 
 # --- CORE WALLET MODELS ---
@@ -59,6 +81,7 @@ class Transaction(models.Model):
     status = models.CharField(max_length=20, choices=TRANSACTION_STATUS, default='completed')
     date = models.DateField(auto_now_add=True) # Or DateTimeField
     reference_code = models.CharField(max_length=50, unique=True)
+    
     
     # For Installments (stores JSON like {current: 1, total: 4, next_due: '2026-03-06'})
     installment_plan = models.JSONField(null=True, blank=True)
@@ -93,7 +116,7 @@ class Payout(models.Model):
     amount = models.DecimalField(max_digits=10, decimal_places=2)
     currency = models.CharField(max_length=3, default='USD')
     status = models.CharField(max_length=20, choices=PAYOUT_STATUS, default='pending_approval')
-    method = models.CharField(max_length=20, choices=[('stripe', 'Stripe'), ('bank_transfer', 'Bank Transfer'), ('paypal', 'PayPal')])
+    method = models.CharField(max_length=20, choices=PAYOUT_METHODS)
     created_at = models.DateField(auto_now_add=True)
     risk_flag = models.BooleanField(default=False) # Highlights risky payouts in UI
 
@@ -125,7 +148,7 @@ class PlatformSettings(models.Model):
     
 class PaymentMethod(models.Model):
     user = models.ForeignKey(settings.AUTH_USER_MODEL, related_name='payment_methods', on_delete=models.CASCADE)
-    type = models.CharField(max_length=20, choices=[('visa', 'Visa'), ('mastercard', 'Mastercard'), ('amex', 'Amex')])
+    type = models.CharField(max_length=20, choices=PAYMENT_TYPE)
     last4 = models.CharField(max_length=4)
     expiry = models.CharField(max_length=7) # MM/YYYY
     holder_name = models.CharField(max_length=100)
@@ -146,10 +169,45 @@ class Subscription(models.Model):
     amount = models.DecimalField(max_digits=10, decimal_places=2)
     frequency = models.CharField(max_length=20, choices=[('Weekly', 'Weekly'), ('Monthly', 'Monthly'), ('Quarterly', 'Quarterly')])
     next_billing_date = models.DateField()
-    status = models.CharField(max_length=20, choices=[
-        ('active', 'Active'), 
-        ('paused', 'Paused'), 
-        ('cancelled', 'Cancelled'), 
-        ('payment_failed', 'Payment Failed')
-    ], default='active')
+    status = models.CharField(max_length=20, choices=BILLING_STATUS, default='active')
     payment_method = models.ForeignKey(PaymentMethod, on_delete=models.SET_NULL, null=True, blank=True)
+
+
+class PromotionRequest(models.Model):
+    vendor = models.ForeignKey(settings.AUTH_USER_MODEL, related_name='promotion_requests', on_delete=models.CASCADE)
+    product_name = models.ForeignKey(Product, on_delete=models.CASCADE)
+    discount_amount = models.CharField(max_length=100) # e.g., "20% OFF", "$15 Flat"
+    duration = models.CharField(max_length=100) # e.g., "7 Days", "Ends Friday"
+    status = models.CharField(max_length=50, default="pending") # pending, approved, rejected
+    created_at = models.DateTimeField(auto_now_add=True)
+
+
+
+class Orders(models.Model):
+    order_id = models.CharField(max_length=50, unique=True)
+    customer_name = models.CharField(max_length=100)
+    seller_name = models.CharField(max_length=100)
+    product_name = models.CharField(max_length=100)
+    amount = models.DecimalField(max_digits=10, decimal_places=2)
+    shipping_cost = models.DecimalField(max_digits=10, decimal_places=2, default=0.00)
+    subtotal = models.DecimalField(max_digits=10, decimal_places=2)
+    shipping_address = models.TextField(max_length=500)
+    date = models.DateField(auto_now_add=True)
+    status = models.CharField(max_length=20, choices=SHIPPING_STATUS, default='pending')
+    internal_notes = models.TextField(blank=True) 
+
+
+
+class TimelineEvent(models.Model):
+    order = models.ForeignKey(Orders, related_name='timeline_events', on_delete=models.CASCADE)
+    event = models.CharField(max_length=255) 
+    date = models.DateField(auto_now_add=True)
+
+class Items(models.Model):
+    order = models.ForeignKey(Orders, related_name='items', on_delete=models.CASCADE)
+    product_name = models.CharField(max_length=100)
+    quantity = models.IntegerField()
+    price_per_unit = models.DecimalField(max_digits=10, decimal_places=2)
+
+
+
